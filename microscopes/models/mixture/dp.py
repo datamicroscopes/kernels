@@ -1,7 +1,7 @@
 import numpy as np
 
 from microscopes.common.groups import FixedNGroupManager
-from distributions.dbg.random import sample_discrete_log
+from distributions.dbg.random import sample_discrete_log, sample_discrete
 
 class DPMM(object):
 
@@ -115,3 +115,38 @@ class DPMM(object):
                 empty_gid = self.create_group()
 
         assert self._groups.all_entities_assigned()
+
+    def sample(self, n):
+        """
+        generate n iid samples from the underlying generative process described by this DPMM.
+
+        does not affect the state of the DPMM, and only depends on the prior parameters of the
+        DPMM
+
+        returns a k-length tuple of observations, where k is the # of sampled
+        clusters from the CRP
+        """
+        cluster_counts = np.array([1], dtype=np.int)
+        def init_sampler(arg):
+            typ, s = arg
+            samp = typ.Sampler()
+            samp.init(s)
+            return samp
+        def new_cluster_params():
+            return map(init_sampler, zip(self._featuretypes, self._featureshares))
+        def new_sample(params):
+            return [samp.eval(s) for samp, s in zip(cluster_params[0], self._featureshares)]
+        cluster_params = [new_cluster_params()]
+        samples = [[new_sample(cluster_params[-1])]]
+        for _ in xrange(1, n):
+            dist = np.append(cluster_counts, self._alpha).astype(np.float, copy=False)
+            choice = sample_discrete(dist)
+            if choice == len(cluster_counts):
+                cluster_counts = np.append(cluster_counts, 1)
+                cluster_params.append(new_cluster_params())
+                samples.append([new_sample(cluster_params[-1])])
+            else:
+                cluster_counts[choice] += 1
+                params = cluster_params[choice]
+                samples[choice].append(new_sample(params))
+        return tuple(np.array(ys) for ys in samples)

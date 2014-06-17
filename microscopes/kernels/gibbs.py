@@ -66,9 +66,10 @@ if __name__ == '__main__':
         alpha, beta = hp['alpha'], hp['beta']
         # http://iacs-courses.seas.harvard.edu/courses/am207/blog/lecture-9.html
         return math.pow(alpha + beta, -2.5)
-    Y = np.array([[0, 1], [1, 1], [1, 0], [0, 0], [1, 0]], dtype=np.int32)
-    N, _ = Y.shape
-    dpmm = DPMM(N, {'alpha':2.0}, [bb, bb], [{'alpha':0.5, 'beta':0.2}]*2)
+    N = 10
+    D = 5
+    dpmm = DPMM(N, {'alpha':2.0}, [bb]*D, [{'alpha':1.0, 'beta':1.0}]*D)
+    Y = np.vstack(dpmm.sample(N))
     dataset = numpy_dataset(Y)
     dpmm.bootstrap(dataset.data())
     #gibbs(dpmm, dataset, 10)
