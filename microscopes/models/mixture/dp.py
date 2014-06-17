@@ -3,51 +3,24 @@ import numpy as np
 from microscopes.common.groups import FixedNGroupManager
 from distributions.dbg.random import sample_discrete_log
 
-####
-# Some utilities for dealing with distributions which bind the shared values so
-# we don't have to keep passing them around
-####
-
-class FeatureGroup(object):
-    def __init__(self, group, shared):
-        self._group = group
-        self._shared = shared
-    def add_value(self, value):
-        self._group.add_value(self._shared, value)
-    def remove_value(self, value):
-        self._group.remove_value(self._shared, value)
-    def score_value(self, value):
-        return self._group.score_value(self._shared, value)
-    def __str__(self):
-        return str(self._group)
-    def __repr__(self):
-        return repr(self._group)
-
-class Feature(object):
-    def __init__(self, typ, shared):
-        self._typ = typ
-        self._shared = shared
-    def new_group(self):
-        g = self._typ.Group()
-        g.init(self._shared)
-        return FeatureGroup(g, self._shared)
-    def __str__(self):
-        return str(self._shared)
-    def __repr__(self):
-        return repr(self._shared)
-
 class DPMM(object):
 
     def __init__(self, n, clusterhp, featuretypes, featurehps):
         self._groups = FixedNGroupManager(n)
         self._alpha = clusterhp['alpha'] # CRP alpha
         self._featuretypes = featuretypes
-        def init_and_load_feature(arg):
+        def init_and_load_shared(arg):
             typ, hp = arg
             shared = typ.Shared()
             shared.load(hp)
-            return Feature(typ, shared)
-        self._features = map(init_and_load_feature, zip(featuretypes, featurehps))
+            return shared
+        self._featureshares = map(init_and_load_shared, zip(self._featuretypes, featurehps))
+
+    def set_cluster_hp(self, clusterhp):
+        self._alpha = clusterhp['alpha']
+
+    def set_feature_hp(self, fi, featurehp):
+        self._featureshares[fi].load(featurehp)
 
     def empty_groups(self):
         return self._groups.empty_groups()
@@ -68,7 +41,12 @@ class DPMM(object):
         """
         returns gid
         """
-        gdata = tuple(f.new_group() for f in self._features)
+        def init_group(arg):
+            typ, shared = arg
+            g = typ.Group()
+            g.init(shared)
+            return g
+        gdata = map(init_group, zip(self._featuretypes, self._featureshares))
         return self._groups.create_group(gdata)
 
     def delete_group(self, gid):
@@ -76,16 +54,16 @@ class DPMM(object):
 
     def add_entity_to_group(self, gid, eid, y):
         gdata = self._groups.add_entity_to_group(gid, eid)
-        for g, yi in zip(gdata, y):
-            g.add_value(yi)
+        for (g, s), yi in zip(zip(gdata, self._featureshares), y):
+            g.add_value(s, yi)
 
     def remove_entity_from_group(self, eid, y):
         """
         returns gid
         """
         gid, gdata = self._groups.remove_entity_from_group(eid)
-        for g, yi in zip(gdata, y):
-            g.remove_value(yi)
+        for (g, s), yi in zip(zip(gdata, self._featureshares), y):
+            g.remove_value(s, yi)
         return gid
 
     def score_value(self, y):
@@ -97,10 +75,26 @@ class DPMM(object):
         n = self._groups.nentities()
         for idx, (gid, (cnt, gdata)) in enumerate(self._groups.groupiter()):
             lg_term1 = np.log((self._alpha if not cnt else cnt)/(n-1-self._alpha)) # CRP
-            lg_term2 = sum(g.score_value(yi) for g, yi in zip(gdata, y))
+            lg_term2 = sum(g.score_value(s, yi) for (g, s), yi in zip(zip(gdata, self._featureshares), y))
             scores[idx] = lg_term1 + lg_term2
             idmap[idx] = gid
         return idmap, scores
+
+    def score_data(self, fi=None):
+        """
+        computes log p(Y_{fi} | C) = \sum{k=1}^{K} log p(Y_{fi}^{k}),
+        where Y_{fi}^{k} is the slice of data along the fi-th feature belonging to the
+        k-th cluster
+
+        if fi is None, scores the data along every feature
+        """
+        score = 0.0
+        for _, (_, gdata) in self._groups.groupiter():
+            if fi is not None:
+                score += gdata[fi].score_data(self._featureshares[fi])
+            else:
+                score += sum(g.score_data(s) for g, s in zip(gdata, self._featureshares))
+        return score
 
     def bootstrap(self, it):
         """
