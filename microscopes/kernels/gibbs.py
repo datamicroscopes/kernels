@@ -45,35 +45,24 @@ def repeat_dataset(dataset, n):
                 return self.next()
     return repeat_iter(dataset, n)
 
-def gibbs_bootstrap(dpmm, dataset):
-    N = dataset.size()
-    assignments = np.zeros(N, dtype=np.int32)
-
-    # bootstrapping assignment
-    for i, yi in dataset.data():
+def gibbs(dpmm, it):
+    empty_gids = list(dpmm.empty_groups())
+    empty_gid = empty_gids[0] if len(empty_gids) else dpmm.create_group()
+    for ei, yi in it:
+        gid = dpmm.remove_entity_from_group(ei, yi)
+        if not dpmm.nentities_in_group(gid):
+            dpmm.delete_group(gid)
         idmap, scores = dpmm.score_value(yi)
-        groupid = idmap[sample_discrete_log(scores)]
-        dpmm.add_value(groupid, yi)
-        assignments[i] = groupid
-
-    return assignments
-
-def gibbs(dpmm, diter, assignments):
-    assignments = assignments.copy()
-    for i, yi in diter:
-        groupid = assignments[i]
-        dpmm.remove_value(groupid, yi)
-        idmap, scores = dpmm.score_value(yi)
-        groupid = idmap[sample_discrete_log(scores)]
-        dpmm.add_value(groupid, yi)
-        assignments[i] = groupid
-    return assignments
+        gid = idmap[sample_discrete_log(scores)]
+        dpmm.add_entity_to_group(gid, ei, yi)
+        if gid == empty_gid:
+            empty_gid = dpmm.create_group()
 
 if __name__ == '__main__':
     from distributions.dbg.models import bb
-    dpmm = DPMM()
-    dpmm.init({'alpha':2.0, 'd':0}, [bb, bb], [{'alpha':0.5, 'beta':0.2}]*2)
     Y = np.array([[0, 1], [1, 1], [1, 0], [0, 0], [1, 0]], dtype=np.int32)
+    N, _ = Y.shape
+    dpmm = DPMM(N, {'alpha':2.0}, [bb, bb], [{'alpha':0.5, 'beta':0.2}]*2)
     dataset = numpy_dataset(Y)
-    x0 = gibbs_bootstrap(dpmm, dataset)
-    gibbs(dpmm, repeat_dataset(dataset, 10), x0)
+    dpmm.bootstrap(dataset.data())
+    gibbs(dpmm, repeat_dataset(dataset, 10))

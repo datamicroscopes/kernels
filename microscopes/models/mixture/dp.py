@@ -1,92 +1,123 @@
 import numpy as np
 
-from distributions.lp.clustering import PitmanYor
-from distributions.lp.mixture import MixtureIdTracker
+from microscopes.common.groups import FixedNGroupManager
+from distributions.dbg.random import sample_discrete_log
+
+####
+# Some utilities for dealing with distributions which bind the shared values so
+# we don't have to keep passing them around
+####
+
+class FeatureGroup(object):
+    def __init__(self, group, shared):
+        self._group = group
+        self._shared = shared
+    def add_value(self, value):
+        self._group.add_value(self._shared, value)
+    def remove_value(self, value):
+        self._group.remove_value(self._shared, value)
+    def score_value(self, value):
+        return self._group.score_value(self._shared, value)
+    def __str__(self):
+        return str(self._group)
+    def __repr__(self):
+        return repr(self._group)
+
+class Feature(object):
+    def __init__(self, typ, shared):
+        self._typ = typ
+        self._shared = shared
+    def new_group(self):
+        g = self._typ.Group()
+        g.init(self._shared)
+        return FeatureGroup(g, self._shared)
+    def __str__(self):
+        return str(self._shared)
+    def __repr__(self):
+        return repr(self._shared)
 
 class DPMM(object):
-    EMPTY_GROUP_COUNT = 1 # hacky
 
-    class FeatureGroup(object):
-        def __init__(self, group, shared):
-            self._group = group
-            self._shared = shared
-        def add_value(self, value):
-            self._group.add_value(self._shared, value)
-        def remove_value(self, value):
-            self._group.remove_value(self._shared, value)
-        def score_value(self, value):
-            return self._group.score_value(self._shared, value)
-        def __str__(self):
-            return str(self._group)
-        def __repr__(self):
-            return repr(self._group)
-
-    class Feature(object):
-        def __init__(self, typ, shared):
-            self._typ = typ
-            self._shared = shared
-        def new_group(self):
-            g = self._typ.Group()
-            g.init(self._shared)
-            return DPMM.FeatureGroup(g, self._shared)
-        def __str__(self):
-            return str(self._shared)
-        def __repr__(self):
-            return repr(self._shared)
-
-    def __init__(self):
-        self._clustering = None
-        self._idtracker = None
-        self._featuretypes = None
-        self._features = None
-        self._groups = None
-
-    def init(self, clusterhp, featuretypes, featurehps):
-        self._clustering = PitmanYor.Mixture()
-        self._clustering_shared = PitmanYor.from_dict(clusterhp)
-        self._clustering.init(self._clustering_shared, [0]*self.EMPTY_GROUP_COUNT)
-        self._idtracker = MixtureIdTracker()
-        self._idtracker.init(self.EMPTY_GROUP_COUNT)
+    def __init__(self, n, clusterhp, featuretypes, featurehps):
+        self._groups = FixedNGroupManager(n)
+        self._alpha = clusterhp['alpha'] # CRP alpha
         self._featuretypes = featuretypes
         def init_and_load_feature(arg):
             typ, hp = arg
             shared = typ.Shared()
             shared.load(hp)
-            return DPMM.Feature(typ, shared)
+            return Feature(typ, shared)
         self._features = map(init_and_load_feature, zip(featuretypes, featurehps))
-        self._groups = {}
 
-    def add_value(self, groupid, y):
-        packed_groupid = self._idtracker.global_to_packed(groupid)
-        assert packed_groupid < len(self._clustering), 'invalid groupid'
-        def _add_value_existing(group, y):
-            for g, yi in zip(group, y):
-                g.add_value(yi)
-        group_added = self._clustering.add_value(self._clustering_shared, packed_groupid)
-        if group_added:
-            assert groupid not in self._groups
-            group = [f.new_group() for f in self._features]
-            _add_value_existing(group, y)
-            self._groups[groupid] = group
-            self._idtracker.add_group()
-        else:
-            _add_value_existing(self._groups[groupid], y)
+    def empty_groups(self):
+        return self._groups.empty_groups()
 
-    def remove_value(self, groupid, y):
-        packed_groupid = self._idtracker.global_to_packed(groupid)
-        assert packed_groupid < len(self._clustering), 'invalid groupid'
-        group_removed = self._clustering.remove_value(self._clustering_shared, packed_groupid)
-        if group_removed:
-            assert groupid in self._groups
-            del self._groups[groupid]
-            self._idtracker.remove_group(packed_groupid)
-        else:
-            for g, yi in zip(self._groups[groupid], y):
-                g.remove_value(yi)
+    def ngroups(self):
+        return self._groups.ngroups()
+
+    def nentities(self):
+        return self._groups.nentities()
+
+    def nentities_in_group(self, gid):
+        return self._groups.nentities_in_group(gid)
+
+    def is_group_empty(self, gid):
+        return not self._groups.nentities_in_group(gid)
+
+    def create_group(self):
+        """
+        returns gid
+        """
+        gdata = tuple(f.new_group() for f in self._features)
+        return self._groups.create_group(gdata)
+
+    def delete_group(self, gid):
+        self._groups.delete_group(gid)
+
+    def add_entity_to_group(self, gid, eid, y):
+        gdata = self._groups.add_entity_to_group(gid, eid)
+        for g, yi in zip(gdata, y):
+            g.add_value(yi)
+
+    def remove_entity_from_group(self, eid, y):
+        """
+        returns gid
+        """
+        gid, gdata = self._groups.remove_entity_from_group(eid)
+        for g, yi in zip(gdata, y):
+            g.remove_value(yi)
+        return gid
 
     def score_value(self, y):
-        scores = np.zeros(len(self._clustering), dtype=np.float32)
-        self._clustering.score_value(self._clustering_shared, scores)
-        for groupid, group in self._groups.iteritems():
-            scores[self._idtracker.global_to_packed(groupid)] += sum(g.score_value(yi) for g, yi in zip(group, y))
-        return [self._idtracker.packed_to_global(i) for i in xrange(len(self._clustering))], scores
+        """
+        returns idmap, scores
+        """
+        scores = np.zeros(self._groups.ngroups(), dtype=np.float)
+        idmap = [0]*self._groups.ngroups()
+        n = self._groups.nentities()
+        for idx, (gid, (cnt, gdata)) in enumerate(self._groups.groupiter()):
+            lg_term1 = np.log((self._alpha if not cnt else cnt)/(n-1-self._alpha)) # CRP
+            lg_term2 = sum(g.score_value(yi) for g, yi in zip(gdata, y))
+            scores[idx] = lg_term1 + lg_term2
+            idmap[idx] = gid
+        return idmap, scores
+
+    def bootstrap(self, it):
+        """
+        bootstraps assignments
+        """
+        assert not self.ngroups()
+        assert self._groups.no_entities_assigned()
+
+        ei0, y0 = next(it)
+        gid0 = self.create_group()
+        self.add_entity_to_group(gid0, ei0, y0)
+        empty_gid = self.create_group()
+        for ei, yi in it:
+            idmap, scores = self.score_value(yi)
+            gid = idmap[sample_discrete_log(scores)]
+            self.add_entity_to_group(gid, ei, yi)
+            if gid == empty_gid:
+                empty_gid = self.create_group()
+
+        assert self._groups.all_entities_assigned()
