@@ -1,5 +1,5 @@
 import numpy as np
-from models.mixture.dp import DPMM
+from microscopes.models.mixture.dp import DPMM
 from distributions.dbg.random import sample_discrete_log
 
 class numpy_dataset(object):
