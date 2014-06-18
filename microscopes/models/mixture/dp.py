@@ -22,6 +22,12 @@ class DPMM(object):
     def set_feature_hp(self, fi, featurehp):
         self._featureshares[fi].load(featurehp)
 
+    def get_cluster_hp(self):
+        return self._alpha
+
+    def get_feature_hp(self, fi):
+        return self._featureshares[fi].dump()
+
     def assignments(self):
         return self._groups.assignments()
 
