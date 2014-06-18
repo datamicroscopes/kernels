@@ -35,6 +35,9 @@ class FixedNGroupManager(object):
     def groupiter(self):
         return self._gdata.iteritems()
 
+    def assignments(self):
+        return self._assignments
+
     def create_group(self, gdata):
         """
         Creates the new group's groupid

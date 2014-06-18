@@ -22,6 +22,9 @@ class DPMM(object):
     def set_feature_hp(self, fi, featurehp):
         self._featureshares[fi].load(featurehp)
 
+    def assignments(self):
+        return self._groups.assignments()
+
     def empty_groups(self):
         return self._groups.empty_groups()
 
@@ -96,6 +99,36 @@ class DPMM(object):
                 score += sum(g.score_data(s) for g, s in zip(gdata, self._featureshares))
         return score
 
+    def score_assignment(self):
+        """
+        computes log p(C)
+        """
+        # CRP
+        lg_sum = 0.0
+        assignments = self._groups.assignments()
+        counts = { assignments[0] : 1 }
+        for i, ci in enumerate(assignments):
+            if i == 0:
+                continue
+            cnt = counts.get(ci, 0)
+            numer = cnt if cnt else self._alpha
+            denom = i + self._alpha
+            lg_sum += np.log(numer / denom)
+            counts[ci] = cnt + 1
+        return lg_sum
+
+    def score_joint(self):
+        """
+        computes log p(C, Y) = log p(C) + log p(Y|C)
+        """
+        return self.score_assignment() + self.score_data(fi=None)
+
+    def reset(self):
+        """
+        reset to the same condition as upon construction
+        """
+        self._groups = FixedNGroupManager(self._groups.nentities())
+
     def bootstrap(self, it):
         """
         bootstraps assignments
@@ -113,6 +146,26 @@ class DPMM(object):
             self.add_entity_to_group(gid, ei, yi)
             if gid == empty_gid:
                 empty_gid = self.create_group()
+
+        assert self._groups.all_entities_assigned()
+
+    def fill(self, clusters):
+        """
+        form a cluster assignment and sufficient statistics out of an given
+        clustering of N points.
+
+        useful to bootstrap a model as the ground truth model
+        """
+        assert not self.ngroups()
+        assert self._groups.no_entities_assigned()
+
+        counts = [c.shape[0] for c in clusters]
+        cumcounts = np.cumsum(counts)
+        gids = [self.create_group() for _ in xrange(len(clusters))]
+        for cid, (gid, data) in enumerate(zip(gids, clusters)):
+            off = cumcounts[cid-1] if cid else 0
+            for ei, yi in enumerate(data):
+                self.add_entity_to_group(gid, off + ei, yi)
 
         assert self._groups.all_entities_assigned()
 

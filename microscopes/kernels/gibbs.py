@@ -2,34 +2,6 @@ import numpy as np
 from microscopes.models.mixture.dp import DPMM
 from distributions.dbg.random import sample_discrete_log
 
-class numpy_iter(object):
-    def __init__(self, Y, inds=None):
-        self._Y = Y
-        self._i = 0
-        self._N = Y.shape[0]
-        self._inds = inds
-
-    def __iter__(self):
-        return self
-
-    def next(self):
-        if self._i == self._N:
-            raise StopIteration()
-        i = self._inds[self._i] if self._inds is not None else self._i
-        self._i += 1
-        return i, Y[i]
-
-class numpy_dataset(object):
-    def __init__(self, Y):
-        self._Y = Y
-
-    def data(self, shuffle=False):
-        inds = np.random.permutation(self.size()) if shuffle else None
-        return numpy_iter(self._Y, inds)
-
-    def size(self):
-        return self._Y.shape[0]
-
 def griddy_gibbs(m, dataset, niters_gibbs, niters_grid, hyperpriors, hypergrids):
     for _ in xrange(niters_grid):
         gibbs(m, dataset, niters_gibbs)
@@ -58,6 +30,7 @@ def gibbs(m, dataset, niters):
 
 if __name__ == '__main__':
     from distributions.dbg.models import bb
+    from microscopes.common.dataset import numpy_dataset
     import itertools as it
     import math
     def mk_bb_hyperprior_grid(n):
@@ -72,5 +45,6 @@ if __name__ == '__main__':
     Y = np.vstack(dpmm.sample(N))
     dataset = numpy_dataset(Y)
     dpmm.bootstrap(dataset.data())
-    #gibbs(dpmm, dataset, 10)
-    griddy_gibbs(dpmm, dataset, 10, 10, (bb_hyperprior_pdf, bb_hyperprior_pdf), (mk_bb_hyperprior_grid(5), mk_bb_hyperprior_grid(5)))
+    griddy_gibbs(dpmm, dataset, 10, 10,
+            (bb_hyperprior_pdf, bb_hyperprior_pdf),
+            (mk_bb_hyperprior_grid(5), mk_bb_hyperprior_grid(5)))
