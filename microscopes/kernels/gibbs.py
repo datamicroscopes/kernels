@@ -42,7 +42,8 @@ if __name__ == '__main__':
     N = 10
     D = 5
     dpmm = DPMM(N, {'alpha':2.0}, [bb]*D, [{'alpha':1.0, 'beta':1.0}]*D)
-    Y = np.vstack(dpmm.sample(N))
+    Y_clustered = dpmm.sample(N)
+    Y = np.hstack(Y_clustered)
     dataset = numpy_dataset(Y)
     dpmm.bootstrap(dataset.data())
     griddy_gibbs(dpmm, dataset, 10, 10,

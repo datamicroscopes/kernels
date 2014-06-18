@@ -180,6 +180,7 @@ class DPMM(object):
         clusters from the CRP
         """
         cluster_counts = np.array([1], dtype=np.int)
+        ydtype = dtype=[('', typ.Value) for typ in self._featuretypes]
         def init_sampler(arg):
             typ, s = arg
             samp = typ.Sampler()
@@ -188,7 +189,8 @@ class DPMM(object):
         def new_cluster_params():
             return map(init_sampler, zip(self._featuretypes, self._featureshares))
         def new_sample(params):
-            return [samp.eval(s) for samp, s in zip(cluster_params[0], self._featureshares)]
+            data = tuple(samp.eval(s) for samp, s in zip(cluster_params[0], self._featureshares))
+            return data
         cluster_params = [new_cluster_params()]
         samples = [[new_sample(cluster_params[-1])]]
         for _ in xrange(1, n):
@@ -202,4 +204,4 @@ class DPMM(object):
                 cluster_counts[choice] += 1
                 params = cluster_params[choice]
                 samples[choice].append(new_sample(params))
-        return tuple(np.array(ys) for ys in samples)
+        return tuple(np.array(ys, dtype=ydtype) for ys in samples)

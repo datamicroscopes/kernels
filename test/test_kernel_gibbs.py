@@ -1,4 +1,4 @@
-from distributions.dbg.models import bb
+from distributions.dbg.models import bb, gp, nich
 
 from microscopes.models.mixture.dp import DPMM
 from microscopes.common.dataset import numpy_dataset
@@ -48,13 +48,14 @@ def cluster(Y, assignments):
 def kl(a, b):
     return np.sum([p*np.log(p/q) for p, q in zip(a, b)])
 
-def test_simple():
+def test_convergence():
     N = 4
     D = 5
     dpmm = DPMM(N, {'alpha':2.0}, [bb]*D, [{'alpha':1.0, 'beta':1.0}]*D)
     actual_dpmm = DPMM(N, {'alpha':2.0}, [bb]*D, [{'alpha':1.0, 'beta':1.0}]*D)
     Y_clustered = dpmm.sample(N)
-    Y = np.vstack(Y_clustered)
+    Y = np.hstack(Y_clustered)
+    assert Y.shape[0] == N
     actual_dpmm.fill(Y_clustered)
 
     idmap = { C : i for i, C in enumerate(permutation_iter(N)) }
@@ -83,3 +84,24 @@ def test_simple():
     gibbs_scores /= gibbs_scores.sum()
 
     assert kl(actual_scores, gibbs_scores) <= 0.1
+
+def test_different_datatypes():
+    N = 10
+    likelihoods = [bb, gp, nich, bb]
+    hyperparams = [
+        {'alpha':1.0, 'beta':3.0},
+        {'alpha':2.0, 'inv_beta':1.0},
+        {'mu': 0., 'kappa': 1., 'sigmasq': 1., 'nu': 1.},
+        {'alpha':2.0, 'beta':1.0}]
+    dpmm = DPMM(N, {'alpha':2.0}, likelihoods, hyperparams)
+    Y_clustered = dpmm.sample(N)
+    Y = np.hstack(Y_clustered)
+    assert Y.shape[0] == N
+    dataset = numpy_dataset(Y)
+    dpmm.bootstrap(dataset.data(shuffle=False))
+
+    # make sure it deals with different types
+    gibbs(dpmm, dataset, 10)
+
+    for typ, y in zip(likelihoods, Y[0]):
+        assert typ.Value == type(np.asscalar(y))
