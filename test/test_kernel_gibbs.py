@@ -73,13 +73,15 @@ def test_convergence():
     dpmm.bootstrap(dataset.data(shuffle=False))
 
     # burnin
-    gibbs(dpmm, dataset, 10000)
+    for _ in xrange(10000):
+        gibbs(dpmm, dataset.data(shuffle=True))
 
     # now grab 1000 samples, every 10 iters
     smoothing = 1e-5
     gibbs_scores = np.zeros(len(actual_scores)) + smoothing
     for _ in xrange(1000):
-        gibbs(dpmm, dataset, 10)
+        for _ in xrange(10):
+            gibbs(dpmm, dataset.data(shuffle=True))
         gibbs_scores[idmap[tuple(canonical(dpmm.assignments()))]] += 1
     gibbs_scores /= gibbs_scores.sum()
 
@@ -101,7 +103,8 @@ def test_different_datatypes():
     dpmm.bootstrap(dataset.data(shuffle=False))
 
     # make sure it deals with different types
-    gibbs(dpmm, dataset, 10)
+    for _ in xrange(10):
+        gibbs(dpmm, dataset.data(shuffle=True))
 
     for typ, y in zip(likelihoods, Y[0]):
         assert typ.Value == type(np.asscalar(y))

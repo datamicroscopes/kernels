@@ -156,4 +156,5 @@ if __name__ == '__main__':
     Y = np.hstack(Y_clustered)
     dataset = numpy_dataset(Y)
     dpmm.bootstrap(dataset.data())
-    gibbs(dpmm, dataset, 3)
+    for _ in xrange(3):
+        gibbs(dpmm, dataset.data(shuffle=True))
