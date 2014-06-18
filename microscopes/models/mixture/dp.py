@@ -180,7 +180,11 @@ class DPMM(object):
         clusters from the CRP
         """
         cluster_counts = np.array([1], dtype=np.int)
-        ydtype = dtype=[('', typ.Value) for typ in self._featuretypes]
+        def mk_dtype_desc(typ, shared):
+            if hasattr(shared, 'dimension'):
+                return ('', typ.Value, (shared.dimension(),))
+            return ('', typ.Value)
+        ydtype = [mk_dtype_desc(typ, shared) for typ, shared in zip(self._featuretypes, self._featureshares)]
         def init_sampler(arg):
             typ, s = arg
             samp = typ.Sampler()
