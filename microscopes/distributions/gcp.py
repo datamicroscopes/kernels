@@ -126,7 +126,7 @@ class Sampler(object):
 if __name__ == '__main__':
     from microscopes.distributions.gcp_util import random_orthonormal_matrix
     from microscopes.common.dataset import numpy_dataset
-    from microscopes.kernels.gibbs import gibbs
+    from microscopes.kernels.gibbs import gibbs_assign
     from distributions.dbg.models import bb
     import sys
     gcp = sys.modules['__main__']
@@ -157,4 +157,4 @@ if __name__ == '__main__':
     dataset = numpy_dataset(Y)
     dpmm.bootstrap(dataset.data())
     for _ in xrange(3):
-        gibbs(dpmm, dataset.data(shuffle=True))
+        gibbs_assign(dpmm, dataset.data(shuffle=True))

@@ -2,7 +2,7 @@ import numpy as np
 from microscopes.models.mixture.dp import DPMM
 from distributions.dbg.random import sample_discrete_log
 
-def griddy_gibbs(m, hpdfs, hgrids):
+def gibbs_hp(m, hpdfs, hgrids):
     """
     run one iteration of gibbs hyperparameter estimation
     """
@@ -14,7 +14,7 @@ def griddy_gibbs(m, hpdfs, hgrids):
             scores[i] = hpdf(hp) + m.score_data(fi)
         m.set_feature_hp(fi, hgrid[sample_discrete_log(scores)])
 
-def gibbs(m, it):
+def gibbs_assign(m, it):
     """
     run one iteration of gibbs sampling throughout the dataset
     """
@@ -39,13 +39,12 @@ if __name__ == '__main__':
     from distributions.dbg.models import bb
     from microscopes.common.dataset import numpy_dataset
     import itertools as it
-    import math
     def mk_bb_hyperprior_grid(n):
         return tuple({'alpha':alpha, 'beta':beta} for alpha, beta in it.product(np.linspace(0.01, 10.0, n), repeat=2))
     def bb_hyperprior_pdf(hp):
         alpha, beta = hp['alpha'], hp['beta']
         # http://iacs-courses.seas.harvard.edu/courses/am207/blog/lecture-9.html
-        return math.pow(alpha + beta, -2.5)
+        return -2.5 * np.log(alpha + beta)
     N = 10
     D = 5
     dpmm = DPMM(N, {'alpha':2.0}, [bb]*D, [{'alpha':1.0, 'beta':1.0}]*D)
@@ -57,5 +56,5 @@ if __name__ == '__main__':
             (mk_bb_hyperprior_grid(5), mk_bb_hyperprior_grid(5))
     for _ in xrange(10):
         for _ in xrange(10):
-            gibbs(dpmm, dataset.data(shuffle=True))
-        griddy_gibbs(dpmm, hpdfs, hgrids)
+            gibbs_assign(dpmm, dataset.data(shuffle=True))
+        gibbs_hp(dpmm, hpdfs, hgrids)

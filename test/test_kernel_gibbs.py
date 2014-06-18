@@ -2,7 +2,7 @@ from distributions.dbg.models import bb, gp, nich
 
 from microscopes.models.mixture.dp import DPMM
 from microscopes.common.dataset import numpy_dataset
-from microscopes.kernels.gibbs import gibbs
+from microscopes.kernels.gibbs import gibbs_assign
 
 import itertools as it
 import math
@@ -74,14 +74,14 @@ def test_convergence():
 
     # burnin
     for _ in xrange(10000):
-        gibbs(dpmm, dataset.data(shuffle=True))
+        gibbs_assign(dpmm, dataset.data(shuffle=True))
 
     # now grab 1000 samples, every 10 iters
     smoothing = 1e-5
     gibbs_scores = np.zeros(len(actual_scores)) + smoothing
     for _ in xrange(1000):
         for _ in xrange(10):
-            gibbs(dpmm, dataset.data(shuffle=True))
+            gibbs_assign(dpmm, dataset.data(shuffle=True))
         gibbs_scores[idmap[tuple(canonical(dpmm.assignments()))]] += 1
     gibbs_scores /= gibbs_scores.sum()
 
@@ -104,7 +104,7 @@ def test_different_datatypes():
 
     # make sure it deals with different types
     for _ in xrange(10):
-        gibbs(dpmm, dataset.data(shuffle=True))
+        gibbs_assign(dpmm, dataset.data(shuffle=True))
 
     for typ, y in zip(likelihoods, Y[0]):
         assert typ.Value == type(np.asscalar(y))
