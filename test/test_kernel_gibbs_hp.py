@@ -1,38 +1,22 @@
-from distributions.dbg.models import bb
-
-from microscopes.models.mixture.dp import DPMM
-from microscopes.kernels.gibbs import gibbs_assign, gibbs_hp
-from nose.plugins.attrib import attr
+from microscopes.kernels.gibbs import gibbs_hp
+from common import make_one_feature_bb_mm, bb_hyperprior_pdf
 
 import itertools as it
 import numpy as np
 import scipy as sp
 import scipy.misc
 
+from nose.plugins.attrib import attr
+
 @attr('slow')
-def test_griddy_gibbs():
+def test_kernel_gibbs_hp():
     def mk_bb_hyperprior_grid(n):
         return tuple({'alpha':alpha,'beta':beta} for alpha, beta in it.product(np.linspace(0.01, 5.0, n), repeat=2))
-    def bb_hyperprior_pdf(hp):
-        alpha, beta = hp['alpha'], hp['beta']
-        # http://iacs-courses.seas.harvard.edu/courses/am207/blog/lecture-9.html
-        return -2.5 * np.log(alpha + beta)
     Nk = 1000
     K = 100
     gridsize = 10
-    dpmm = DPMM(K*Nk, {'alpha':2.0}, [bb], [{'alpha':1.0,'beta':1.0}])
-    shared = bb.Shared()
-    shared.load({'alpha':1.0,'beta':1.0})
-    def init_sampler():
-        samp = bb.Sampler()
-        samp.init(shared)
-        return samp
-    samplers = [init_sampler() for _ in xrange(K)]
-    def gen_cluster(samp):
-        data = [(samp.eval(shared),) for _ in xrange(Nk)]
-        return np.array(data, dtype=[('', bool)])
-    Y_clustered = tuple(map(gen_cluster, samplers))
-    dpmm.fill(Y_clustered)
+    dpmm = make_one_feature_bb_mm(Nk, K, 1.0, 1.0)
+    dpmm.set_feature_hp(0, {'alpha':1.5,'beta':3.0}) # don't start w/ the right answer
 
     # find closest grid point to actual point
     grid = mk_bb_hyperprior_grid(gridsize)
