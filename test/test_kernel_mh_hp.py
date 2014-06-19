@@ -1,7 +1,6 @@
 from microscopes.kernels.mh import mh_hp
 from common import make_one_feature_bb_mm, bb_hyperprior_pdf
 
-import itertools as it
 import numpy as np
 import math
 import scipy as sp

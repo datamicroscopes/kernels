@@ -60,12 +60,14 @@ def slice_sample(x0, pdf, w):
 def slice_hp(m, hpdfs, hws):
     # XXX: this can be done in parallel
     for fi, (hpdf, hw) in enumerate(zip(hpdfs, hws)):
-        for key, w in hw:
+        items = list(hw.iteritems())
+        for i in np.random.permutation(np.arange(len(items))):
+            key, w = items[i]
             hp = m.get_feature_hp(fi)
             hp0 = dict(hp)
             def pdf(x):
                 hp0[key] = x
                 m.set_feature_hp(fi, hp0)
                 return hpdf(hp0) + m.score_data(fi)
-            hp0[key] = slice_sample(pdf, hp[key], hw[key])
+            hp0[key] = slice_sample(hp[key], pdf, hw[key])
             m.set_feature_hp(fi, hp0)

@@ -5,8 +5,11 @@ import numpy as np
 
 def bb_hyperprior_pdf(hp):
     alpha, beta = hp['alpha'], hp['beta']
-    # http://iacs-courses.seas.harvard.edu/courses/am207/blog/lecture-9.html
-    return -2.5 * np.log(alpha + beta)
+    if alpha > 0.0 and beta > 0.0:
+        # http://iacs-courses.seas.harvard.edu/courses/am207/blog/lecture-9.html
+        return -2.5 * np.log(alpha + beta)
+    # -Infinity
+    return -1e10
 
 def make_one_feature_bb_mm(Nk, K, alpha, beta):
     dpmm = DPMM(K*Nk, {'alpha':2.0}, [bb], [{'alpha':alpha,'beta':beta}])
