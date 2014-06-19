@@ -1,5 +1,5 @@
 from scipy.stats import norm
-from microscopes.kernels.slice import slicesample
+from microscopes.kernels.slice import slice_sample
 
 import numpy as np
 
@@ -17,7 +17,7 @@ def test_gauss():
     def sampler(x0, niters):
         x = x0
         for _ in xrange(niters):
-            x = slicesample(pdf, x, 0.1)
+            x = slice_sample(x, pdf, 0.1)
             yield x
 
     bins = np.linspace(-3, 3, 1000)

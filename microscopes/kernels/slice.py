@@ -52,7 +52,20 @@ def shrink(pdf, x0, y, L, R):
     logging.warn('shrink exceeded maximum iterations (%d)' % (ntries))
     return x1
 
-def slicesample(pdf, x0, w):
+def slice_sample(x0, pdf, w):
     y = np.log(np.random.random()) + pdf(x0)
     L, R = interval(pdf, x0, y, w, 1000)
     return shrink(pdf, x0, y, L, R)
+
+def slice_hp(m, hpdfs, hws):
+    # XXX: this can be done in parallel
+    for fi, (hpdf, hw) in enumerate(zip(hpdfs, hws)):
+        for key, w in hw:
+            hp = m.get_feature_hp(fi)
+            hp0 = dict(hp)
+            def pdf(x):
+                hp0[key] = x
+                m.set_feature_hp(fi, hp0)
+                return hpdf(hp0) + m.score_data(fi)
+            hp0[key] = slice_sample(pdf, hp[key], hw[key])
+            m.set_feature_hp(fi, hp0)
