@@ -1,6 +1,6 @@
 from distributions.dbg.models import bb, gp, nich
 
-from microscopes.models.mixture.dp import DPMM
+from microscopes.models.mixture.dp import DirichletProcess
 from microscopes.common.dataset import numpy_dataset
 from microscopes.kernels.gibbs import gibbs_assign
 
@@ -51,8 +51,8 @@ def kl(a, b):
 def test_convergence():
     N = 4
     D = 5
-    dpmm = DPMM(N, {'alpha':2.0}, [bb]*D, [{'alpha':1.0, 'beta':1.0}]*D)
-    actual_dpmm = DPMM(N, {'alpha':2.0}, [bb]*D, [{'alpha':1.0, 'beta':1.0}]*D)
+    dpmm = DirichletProcess(N, {'alpha':2.0}, [bb]*D, [{'alpha':1.0, 'beta':1.0}]*D)
+    actual_dpmm = DirichletProcess(N, {'alpha':2.0}, [bb]*D, [{'alpha':1.0, 'beta':1.0}]*D)
     Y_clustered = dpmm.sample(N)
     Y = np.hstack(Y_clustered)
     assert Y.shape[0] == N
@@ -95,7 +95,7 @@ def test_different_datatypes():
         {'alpha':2.0, 'inv_beta':1.0},
         {'mu': 0., 'kappa': 1., 'sigmasq': 1., 'nu': 1.},
         {'alpha':2.0, 'beta':1.0}]
-    dpmm = DPMM(N, {'alpha':2.0}, likelihoods, hyperparams)
+    dpmm = DirichletProcess(N, {'alpha':2.0}, likelihoods, hyperparams)
     Y_clustered = dpmm.sample(N)
     Y = np.hstack(Y_clustered)
     assert Y.shape[0] == N

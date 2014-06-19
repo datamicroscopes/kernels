@@ -150,8 +150,8 @@ if __name__ == '__main__':
     print g.score_data(s)
     g.remove_value(s, np.array([-3., 54.]))
 
-    from microscopes.models.mixture.dp import DPMM
-    dpmm = DPMM(10, {'alpha':2.0}, [gcp, bb], [raw, {'alpha':1.0,'beta':1.0}])
+    from microscopes.models.mixture.dp import DirichletProcess
+    dpmm = DirichletProcess(10, {'alpha':2.0}, [gcp, bb], [raw, {'alpha':1.0,'beta':1.0}])
     Y_clustered = dpmm.sample(10)
     Y = np.hstack(Y_clustered)
     dataset = numpy_dataset(Y)

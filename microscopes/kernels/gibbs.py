@@ -1,5 +1,5 @@
 import numpy as np
-from microscopes.models.mixture.dp import DPMM
+from microscopes.models.mixture.dp import DirichletProcess
 from distributions.dbg.random import sample_discrete_log
 
 def gibbs_hp(m, hpdfs, hgrids):
@@ -87,7 +87,7 @@ if __name__ == '__main__':
         return -2.5 * np.log(alpha + beta)
     N = 10
     D = 5
-    dpmm = DPMM(N, {'alpha':2.0}, [bb]*D, [{'alpha':1.0, 'beta':1.0}]*D)
+    dpmm = DirichletProcess(N, {'alpha':2.0}, [bb]*D, [{'alpha':1.0, 'beta':1.0}]*D)
     Y_clustered = dpmm.sample(N)
     Y = np.hstack(Y_clustered)
     dataset = numpy_dataset(Y)

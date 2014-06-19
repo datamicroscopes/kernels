@@ -3,7 +3,7 @@ import numpy as np
 from microscopes.common.groups import FixedNGroupManager
 from distributions.dbg.random import sample_discrete_log, sample_discrete
 
-class DPMM(object):
+class DirichletProcess(object):
 
     def __init__(self, n, clusterhp, featuretypes, featurehps):
         self._groups = FixedNGroupManager(n)
@@ -180,10 +180,10 @@ class DPMM(object):
 
     def sample(self, n):
         """
-        generate n iid samples from the underlying generative process described by this DPMM.
+        generate n iid samples from the underlying generative process described by this DirichletProcess.
 
-        does not affect the state of the DPMM, and only depends on the prior parameters of the
-        DPMM
+        does not affect the state of the DirichletProcess, and only depends on the prior parameters of the
+        DirichletProcess
 
         returns a k-length tuple of observations, where k is the # of sampled
         clusters from the CRP

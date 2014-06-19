@@ -1,4 +1,4 @@
-from microscopes.models.mixture.dp import DPMM
+from microscopes.models.mixture.dp import DirichletProcess
 from distributions.dbg.models import bb
 
 import numpy as np
@@ -12,7 +12,7 @@ def bb_hyperprior_pdf(hp):
     return -1e10
 
 def make_one_feature_bb_mm(Nk, K, alpha, beta):
-    dpmm = DPMM(K*Nk, {'alpha':2.0}, [bb], [{'alpha':alpha,'beta':beta}])
+    dpmm = DirichletProcess(K*Nk, {'alpha':2.0}, [bb], [{'alpha':alpha,'beta':beta}])
     shared = bb.Shared()
     shared.load({'alpha':alpha,'beta':beta})
     def init_sampler():
