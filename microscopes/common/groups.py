@@ -8,6 +8,7 @@ class FixedNGroupManager(object):
         self._assignments = -1*np.ones(self._n, dtype=np.int)
         self._gid = 0
         self._gdata = {}
+        self._gempty = set() # to support fast empty group lookup
 
     def nentities(self):
         return self._n
@@ -19,15 +20,19 @@ class FixedNGroupManager(object):
         return self._gdata[gid][0]
 
     def no_entities_assigned(self):
+        """
+        runtime: O(n)
+        """
         return (self._assignments == -1).all()
 
     def all_entities_assigned(self):
+        """
+        runtime: O(n)
+        """
         return not (self._assignments == -1).any()
 
     def empty_groups(self):
-        for gid, (cnt, _) in self._gdata.iteritems():
-            if not cnt:
-                yield gid
+        return self._gempty
 
     def group_data(self, gid):
         return self._gdata[gid][1]
@@ -45,6 +50,7 @@ class FixedNGroupManager(object):
         gid = self._gid
         self._gid += 1
         self._gdata[gid] = [0, gdata]
+        self._gempty.add(gid)
         return gid
 
     def delete_group(self, gid):
@@ -52,7 +58,9 @@ class FixedNGroupManager(object):
         Can only do this if the group is empty
         """
         assert not self.nentities_in_group(gid), 'group needs to be empty'
+        assert gid in self._gempty
         del self._gdata[gid]
+        self._gempty.remove(gid)
 
     def add_entity_to_group(self, gid, eid):
         """
@@ -62,8 +70,11 @@ class FixedNGroupManager(object):
         assert self._assignments[eid] == self.NOT_ASSIGNED
         self._assignments[eid] = gid
         ref = self._gdata[gid]
-        ref[0] += 1
-        return ref[1]
+        cnt, gdata = ref
+        if not cnt:
+            self._gempty.remove(gid)
+        ref[0] = cnt + 1
+        return gdata
 
     def remove_entity_from_group(self, eid):
         """
@@ -74,5 +85,9 @@ class FixedNGroupManager(object):
         gid = self._assignments[eid]
         self._assignments[eid] = self.NOT_ASSIGNED
         ref = self._gdata[gid]
-        ref[0] -= 1
-        return gid, ref[1]
+        cnt, gdata = ref
+        if cnt == 1:
+            assert gid not in self._gempty
+            self._gempty.add(gid)
+        ref[0] = cnt - 1
+        return gid, gdata

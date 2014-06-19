@@ -82,8 +82,11 @@ class DPMM(object):
         scores = np.zeros(self._groups.ngroups(), dtype=np.float)
         idmap = [0]*self._groups.ngroups()
         n = self._groups.nentities()
+        n_empty_groups = len(self.empty_groups())
+        assert n_empty_groups > 0
+        empty_group_alpha = self._alpha / n_empty_groups # all empty groups share the alpha equally
         for idx, (gid, (cnt, gdata)) in enumerate(self._groups.groupiter()):
-            lg_term1 = np.log((self._alpha if not cnt else cnt)/(n-1-self._alpha)) # CRP
+            lg_term1 = np.log((empty_group_alpha if not cnt else cnt)/(n-1-self._alpha)) # CRP
             lg_term2 = sum(g.score_value(s, yi) for (g, s), yi in zip(zip(gdata, self._featureshares), y))
             scores[idx] = lg_term1 + lg_term2
             idmap[idx] = gid
