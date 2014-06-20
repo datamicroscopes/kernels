@@ -1,5 +1,4 @@
 import numpy as np
-from microscopes.models.mixture.dp import DirichletProcess
 from distributions.dbg.random import sample_discrete_log
 
 def gibbs_hp(m, hpdfs, hgrids):
@@ -77,6 +76,7 @@ def gibbs_assign_nonconj(m, it, nonempty):
 
 if __name__ == '__main__':
     from distributions.dbg.models import bb
+    from microscopes.models.mixture.dp import DirichletProcess
     from microscopes.common.dataset import numpy_dataset
     import itertools as it
     def mk_bb_hyperprior_grid(n):
