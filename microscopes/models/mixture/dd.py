@@ -2,12 +2,13 @@ import numpy as np
 
 from microscopes.common.groups import FixedNGroupManager
 from distributions.dbg.random import sample_discrete_log, sample_discrete
+from distributions.dbg.special import gammaln
 
-class DirichletProcess(object):
+class DirichletFixed(object):
 
-    def __init__(self, n, clusterhp, featuretypes, featurehps):
+    def __init__(self, n, k, clusterhp, featuretypes, featurehps):
         self._groups = FixedNGroupManager(n)
-        self._alpha = clusterhp['alpha'] # CRP alpha
+        self._alpha = clusterhp['alpha'] # dirichlet distribution alpha
         self._featuretypes = featuretypes
         def init_and_load_shared(arg):
             typ, hp = arg
@@ -15,6 +16,10 @@ class DirichletProcess(object):
             shared.load(hp)
             return shared
         self._featureshares = map(init_and_load_shared, zip(self._featuretypes, featurehps))
+        for i in xrange(k):
+            gid = self._create_group()
+            assert gid == i
+        assert self.ngroups() == k
 
     def set_cluster_hp(self, clusterhp):
         self._alpha = clusterhp['alpha']
@@ -46,7 +51,7 @@ class DirichletProcess(object):
     def is_group_empty(self, gid):
         return not self._groups.nentities_in_group(gid)
 
-    def create_group(self):
+    def _create_group(self):
         """
         returns gid
         """
@@ -57,9 +62,6 @@ class DirichletProcess(object):
             return g
         gdata = map(init_group, zip(self._featuretypes, self._featureshares))
         return self._groups.create_group(gdata)
-
-    def delete_group(self, gid):
-        self._groups.delete_group(gid)
 
     def add_entity_to_group(self, gid, eid, y):
         gdata = self._groups.add_entity_to_group(gid, eid)
@@ -79,14 +81,12 @@ class DirichletProcess(object):
         """
         returns idmap, scores
         """
-        scores = np.zeros(self._groups.ngroups(), dtype=np.float)
-        idmap = [0]*self._groups.ngroups()
-        n = self._groups.nentities()
-        n_empty_groups = len(self.empty_groups())
-        assert n_empty_groups > 0
-        empty_group_alpha = self._alpha / n_empty_groups # all empty groups share the alpha equally
+        k = self.ngroups()
+        scores = np.zeros(k, dtype=np.float)
+        idmap = np.arange(k)
+        n = self.nentities()
         for idx, (gid, (cnt, gdata)) in enumerate(self._groups.groupiter()):
-            lg_term1 = np.log((empty_group_alpha if not cnt else cnt)/(n-1-self._alpha)) # CRP
+            lg_term1 = np.log((cnt + self._alpha/k)/(n-1-self._alpha)) # CRP
             lg_term2 = sum(g.score_value(s, yi) for (g, s), yi in zip(zip(gdata, self._featureshares), y))
             scores[idx] = lg_term1 + lg_term2
             idmap[idx] = gid
@@ -111,20 +111,15 @@ class DirichletProcess(object):
     def score_assignment(self):
         """
         computes log p(C)
+        Eq. 8 of http://homepage.tudelft.nl/19j49/Publications_files/TR_1.pdf
         """
-        # CRP
-        lg_sum = 0.0
-        assignments = self._groups.assignments()
-        counts = { assignments[0] : 1 }
-        for i, ci in enumerate(assignments):
-            if i == 0:
-                continue
-            cnt = counts.get(ci, 0)
-            numer = cnt if cnt else self._alpha
-            denom = i + self._alpha
-            lg_sum += np.log(numer / denom)
-            counts[ci] = cnt + 1
-        return lg_sum
+        n = self.nentities()
+        k = self.ngroups()
+        alpha_over_K = self._alpha/k
+        acc = 0.0
+        for _, (cnt, _) in self._groups.groupiter():
+            acc += gammaln(cnt + alpha_over_K)
+        return gammaln(self._alpha) - gammaln(n + self._alpha) + acc - k*gammaln(alpha_over_K)
 
     def score_joint(self):
         """
@@ -136,26 +131,21 @@ class DirichletProcess(object):
         """
         reset to the same condition as upon construction
         """
+        k = self.ngroups()
         self._groups = FixedNGroupManager(self._groups.nentities())
+        for i in xrange(k):
+            gid = self._create_group()
+            assert gid == i
 
     def bootstrap(self, it):
         """
         bootstraps assignments
         """
-        assert not self.ngroups()
         assert self._groups.no_entities_assigned()
-
-        ei0, y0 = next(it)
-        gid0 = self.create_group()
-        self.add_entity_to_group(gid0, ei0, y0)
-        empty_gid = self.create_group()
         for ei, yi in it:
             idmap, scores = self.score_value(yi)
             gid = idmap[sample_discrete_log(scores)]
             self.add_entity_to_group(gid, ei, yi)
-            if gid == empty_gid:
-                empty_gid = self.create_group()
-
         assert self._groups.all_entities_assigned()
 
     def fill(self, clusters):
@@ -165,30 +155,26 @@ class DirichletProcess(object):
 
         useful to bootstrap a model as the ground truth model
         """
-        assert not self.ngroups()
         assert self._groups.no_entities_assigned()
-
+        assert len(clusters) <= self.ngroups(), 'given more clusters than model can support'
         counts = [c.shape[0] for c in clusters]
         cumcounts = np.cumsum(counts)
-        gids = [self.create_group() for _ in xrange(len(clusters))]
-        for cid, (gid, data) in enumerate(zip(gids, clusters)):
+        for cid, data in enumerate(clusters):
             off = cumcounts[cid-1] if cid else 0
             for ei, yi in enumerate(data):
-                self.add_entity_to_group(gid, off + ei, yi)
-
+                self.add_entity_to_group(cid, off + ei, yi)
         assert self._groups.all_entities_assigned()
 
     def sample(self, n):
         """
-        generate n iid samples from the underlying generative process described by this DirichletProcess.
+        generate n iid samples from the underlying generative process described
+        by this DirichletFixed model.
 
-        does not affect the state of the DirichletProcess, and only depends on the prior parameters of the
-        DirichletProcess
+        does not affect the state of the model, and only depends on the prior
+        parameters
 
-        returns a k-length tuple of observations, where k is the # of sampled
-        clusters from the CRP
+        returns a k-length tuple of observations, one for each cluster
         """
-        cluster_counts = np.array([1], dtype=np.int)
         def mk_dtype_desc(typ, shared):
             if hasattr(shared, 'dimension') and shared.dimension() > 1:
                 return ('', typ.Value, (shared.dimension(),))
@@ -204,17 +190,12 @@ class DirichletProcess(object):
         def new_sample(params):
             data = tuple(samp.eval(s) for samp, s in zip(params, self._featureshares))
             return data
-        cluster_params = [new_cluster_params()]
-        samples = [[new_sample(cluster_params[-1])]]
-        for _ in xrange(1, n):
-            dist = np.append(cluster_counts, self._alpha).astype(np.float, copy=False)
-            choice = sample_discrete(dist)
-            if choice == len(cluster_counts):
-                cluster_counts = np.append(cluster_counts, 1)
-                cluster_params.append(new_cluster_params())
-                samples.append([new_sample(cluster_params[-1])])
-            else:
-                cluster_counts[choice] += 1
-                params = cluster_params[choice]
-                samples[choice].append(new_sample(params))
+        k = self.ngroups()
+        cluster_params = [new_cluster_params() for _ in xrange(k)]
+        pis = np.random.dirichlet(self._alpha/k*np.ones(k))
+        samples = [[] for _ in xrange(k)]
+        for _ in xrange(n):
+            choice = sample_discrete(pis)
+            params = cluster_params[choice]
+            samples[choice].append(new_sample(params))
         return tuple(np.array(ys, dtype=ydtype) for ys in samples)
