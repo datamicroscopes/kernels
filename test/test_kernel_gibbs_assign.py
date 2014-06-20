@@ -3,7 +3,12 @@ from distributions.dbg.models import bb, gp, nich
 from microscopes.models.mixture.dp import DirichletProcess
 from microscopes.models.mixture.dd import DirichletFixed
 from microscopes.common.dataset import numpy_dataset
-from microscopes.kernels.gibbs import gibbs_assign, gibbs_assign_fixed
+from microscopes.kernels.gibbs import \
+        gibbs_assign, gibbs_assign_fixed, gibbs_assign_nonconj
+from microscopes.kernels.slice import slice_theta
+from microscopes.distributions import bbnc
+
+from nose.plugins.attrib import attr
 
 import itertools as it
 import math
@@ -60,7 +65,7 @@ def _test_mixture_model_convergence(
         nsamples=1000,
         skip=10,
         threshold=0.1):
-    Y_clustered = mm.sample(N)
+    Y_clustered, _ = mm.sample(N)
     Y = np.hstack(Y_clustered)
     assert Y.shape[0] == N
     actual_mm.fill(Y_clustered)
@@ -120,6 +125,52 @@ def test_dirichlet_process_convergence():
             dpmm, actual_dpmm, N, permutation_iter,
             permutation_canonical, gibbs_assign)
 
+@attr('slow')
+def test_nonconj_inference():
+    N = 1000
+    D = 5
+    dpmm = DirichletProcess(N, {'alpha':0.2}, [bbnc]*D, [{'alpha':1.0, 'beta':1.0}]*D)
+    while True:
+        Y_clustered, cluster_samplers = dpmm.sample(N)
+        if len(Y_clustered) == 2 and max(map(len, Y_clustered)) >= 0.7:
+            break
+    dominant = np.argmax(map(len, Y_clustered))
+    truth = np.array([s.p for s in cluster_samplers[dominant]])
+    print 'truth:', truth
+
+    # see if we can learn the p-values for each of the two clusters. we proceed
+    # by running gibbs_assign_nonconj, followed by slice sampling on the
+    # posterior p(\theta | Y). we'll "cheat" a little by bootstrapping the
+    # DP with the correct assignment (but not with the correct p-values)
+    dpmm.fill(Y_clustered)
+    Y = np.hstack(Y_clustered)
+    dataset = numpy_dataset(Y)
+
+    def mkparam():
+        return {'thetaw':{'p':0.1}}
+    thetaparams = { fi : mkparam() for fi in xrange(D) }
+    def kernel():
+        gibbs_assign_nonconj(dpmm, dataset.data(shuffle=True), nonempty=2)
+        slice_theta(dpmm, thetaparams)
+
+    def inference(niters):
+        for _ in xrange(niters):
+            kernel()
+            groups = dpmm.groups()
+            inferred_dominant = groups[np.argmax([dpmm.nentities_in_group(gid) for gid in groups])]
+            inferred = np.array([
+                [gdata.dump()['p'] for gid, gdata in dpmm.get_suff_stats(d) if gid == inferred_dominant][0] \
+                    for d in xrange(D)])
+            yield inferred
+
+    posterior = list(inference(100))
+    inferred = sum(posterior) / len(posterior)
+    diff = np.linalg.norm(truth-inferred)
+
+    print 'inferred:', inferred
+    print 'diff:', diff
+    assert diff <= 0.2
+
 def test_different_datatypes():
     N = 10
     likelihoods = [bb, gp, nich, bb]
@@ -129,7 +180,7 @@ def test_different_datatypes():
         {'mu': 0., 'kappa': 1., 'sigmasq': 1., 'nu': 1.},
         {'alpha':2.0, 'beta':1.0}]
     dpmm = DirichletProcess(N, {'alpha':2.0}, likelihoods, hyperparams)
-    Y_clustered = dpmm.sample(N)
+    Y_clustered, _ = dpmm.sample(N)
     Y = np.hstack(Y_clustered)
     assert Y.shape[0] == N
     dataset = numpy_dataset(Y)

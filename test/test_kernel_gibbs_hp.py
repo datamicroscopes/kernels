@@ -16,7 +16,7 @@ def test_kernel_gibbs_hp():
     K = 100
     gridsize = 10
     dpmm = make_one_feature_bb_mm(Nk, K, 1.0, 1.0)
-    dpmm.set_feature_hp(0, {'alpha':1.5,'beta':3.0}) # don't start w/ the right answer
+    dpmm.set_feature_hp_raw(0, {'alpha':1.5,'beta':3.0}) # don't start w/ the right answer
 
     # find closest grid point to actual point
     grid = mk_bb_hyperprior_grid(gridsize)
@@ -24,13 +24,13 @@ def test_kernel_gibbs_hp():
     closest = grid[np.argmin(dists)]
     closest = np.array([closest['alpha'], closest['beta']])
 
-    hpdfs, hgrids = (bb_hyperprior_pdf,), (grid,)
+    hparams = {0:{'hpdf':bb_hyperprior_pdf,'hgrid':grid}}
     def posterior(k, skip):
         for _ in xrange(k):
             for _ in xrange(skip-1):
-                gibbs_hp(dpmm, hpdfs, hgrids)
-            gibbs_hp(dpmm, hpdfs, hgrids)
-            hp = dpmm.get_feature_hp(0)
+                gibbs_hp(dpmm, hparams)
+            gibbs_hp(dpmm, hparams)
+            hp = dpmm.get_feature_hp_raw(0)
             yield np.array([hp['alpha'], hp['beta']])
     values = list(posterior(100, 10))
     avg = sum(values) / len(values)

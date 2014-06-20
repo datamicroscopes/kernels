@@ -13,7 +13,7 @@ def test_kernel_mh_hp():
     Nk = 1000
     K = 100
     dpmm = make_one_feature_bb_mm(Nk, K, 1.0, 1.0)
-    dpmm.set_feature_hp(0, {'alpha':1.5,'beta':1.5}) # don't start w/ the right answer
+    dpmm.set_feature_hp_raw(0, {'alpha':1.5,'beta':1.5}) # don't start w/ the right answer
 
     # use a gaussian proposal
     sigma2 = 0.2
@@ -35,15 +35,13 @@ def test_kernel_mh_hp():
                 break
         return {'alpha':alpha,'beta':beta}
 
-    hpdfs = (bb_hyperprior_pdf,)
-    hcondpdfs = (gauss_prop_pdf,)
-    hsamplers = (gauss_prop_sampler,)
+    hparams = {0:{'hpdf':bb_hyperprior_pdf,'hcondpdf':gauss_prop_pdf,'hsamp':gauss_prop_sampler}}
     def posterior(k, skip):
         for _ in xrange(k):
             for _ in xrange(skip-1):
-                mh_hp(dpmm, hpdfs, hcondpdfs, hsamplers)
-            mh_hp(dpmm, hpdfs, hcondpdfs, hsamplers)
-            hp = dpmm.get_feature_hp(0)
+                mh_hp(dpmm, hparams)
+            mh_hp(dpmm, hparams)
+            hp = dpmm.get_feature_hp_raw(0)
             yield np.array([hp['alpha'], hp['beta']])
     values = list(posterior(2000, 100))
     avg = sum(values) / len(values)

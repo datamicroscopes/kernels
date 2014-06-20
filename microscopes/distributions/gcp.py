@@ -123,38 +123,39 @@ class Sampler(object):
 
 #def sample_group(shared, size)
 
-if __name__ == '__main__':
-    from microscopes.distributions.gcp_util import random_orthonormal_matrix
-    from microscopes.common.dataset import numpy_dataset
-    from microscopes.kernels.gibbs import gibbs_assign
-    from distributions.dbg.models import bb
-    import sys
-    gcp = sys.modules['__main__']
-
-    A0 = random_orthonormal_matrix(2)
-    psi0 = np.dot(np.dot(A0, np.diag([1.0, 0.1])), A0.T)
-    raw = {
-        'mu': np.zeros(2),
-        'lam': 0.3,
-        'psi': psi0,
-        'nu' : 3,
-    }
-
-    s = Shared()
-    s.load(raw)
-    g = Group()
-    g.init(s)
-    g.add_value(s, np.array([1., 2.]))
-    g.add_value(s, np.array([-3., 54.]))
-    print g.score_value(s, np.array([3., 0.]))
-    print g.score_data(s)
-    g.remove_value(s, np.array([-3., 54.]))
-
-    from microscopes.models.mixture.dp import DirichletProcess
-    dpmm = DirichletProcess(10, {'alpha':2.0}, [gcp, bb], [raw, {'alpha':1.0,'beta':1.0}])
-    Y_clustered = dpmm.sample(10)
-    Y = np.hstack(Y_clustered)
-    dataset = numpy_dataset(Y)
-    dpmm.bootstrap(dataset.data())
-    for _ in xrange(3):
-        gibbs_assign(dpmm, dataset.data(shuffle=True))
+# XXX: make this a test case!
+#if __name__ == '__main__':
+#    from microscopes.distributions.gcp_util import random_orthonormal_matrix
+#    from microscopes.common.dataset import numpy_dataset
+#    from microscopes.kernels.gibbs import gibbs_assign
+#    from distributions.dbg.models import bb
+#    import sys
+#    gcp = sys.modules['__main__']
+#
+#    A0 = random_orthonormal_matrix(2)
+#    psi0 = np.dot(np.dot(A0, np.diag([1.0, 0.1])), A0.T)
+#    raw = {
+#        'mu': np.zeros(2),
+#        'lam': 0.3,
+#        'psi': psi0,
+#        'nu' : 3,
+#    }
+#
+#    s = Shared()
+#    s.load(raw)
+#    g = Group()
+#    g.init(s)
+#    g.add_value(s, np.array([1., 2.]))
+#    g.add_value(s, np.array([-3., 54.]))
+#    print g.score_value(s, np.array([3., 0.]))
+#    print g.score_data(s)
+#    g.remove_value(s, np.array([-3., 54.]))
+#
+#    from microscopes.models.mixture.dp import DirichletProcess
+#    dpmm = DirichletProcess(10, {'alpha':2.0}, [gcp, bb], [raw, {'alpha':1.0,'beta':1.0}])
+#    Y_clustered = dpmm.sample(10)
+#    Y = np.hstack(Y_clustered)
+#    dataset = numpy_dataset(Y)
+#    dpmm.bootstrap(dataset.data())
+#    for _ in xrange(3):
+#        gibbs_assign(dpmm, dataset.data(shuffle=True))

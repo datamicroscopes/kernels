@@ -57,17 +57,44 @@ def slice_sample(x0, pdf, w):
     L, R = interval(pdf, x0, y, w, 1000)
     return shrink(pdf, x0, y, L, R)
 
-def slice_hp(m, hpdfs, hws):
+def slice_hp(m, hparams):
+    """
+    hparams: dict mapping feature id to the following dict:
+        {
+            'hpdf' : <TODO: fill me in>,
+            'hgrid': <TODO: fill me in>
+        }
+    """
     # XXX: this can be done in parallel
-    for fi, (hpdf, hw) in enumerate(zip(hpdfs, hws)):
+    for fi, hparam in hparams.iteritems():
+        hpdf, hw = hparam['hpdf'], hparam['hw']
         items = list(hw.iteritems())
         for i in np.random.permutation(np.arange(len(items))):
             key, w = items[i]
-            hp = m.get_feature_hp(fi)
-            hp0 = dict(hp)
+            hp = m.get_feature_hp_raw(fi)
             def pdf(x):
-                hp0[key] = x
-                m.set_feature_hp(fi, hp0)
-                return hpdf(hp0) + m.score_data(fi)
-            hp0[key] = slice_sample(hp[key], pdf, hw[key])
-            m.set_feature_hp(fi, hp0)
+                hp[key] = x
+                m.set_feature_hp_raw(fi, hp)
+                return hpdf(hp) + m.score_data(fi)
+            hp[key] = slice_sample(hp[key], pdf, hw[key])
+            m.set_feature_hp_raw(fi, hp)
+
+def slice_theta(m, thetaparams):
+    """
+    XXX: doc
+    """
+    # XXX: this can be done in parallel
+    for fi, thetaparam in thetaparams.iteritems():
+        thetaw = thetaparam['thetaw']
+        items = list(thetaw.iteritems())
+        shared = m.get_feature_hp_shared(fi)
+        for _, g in m.get_suff_stats(fi):
+            for i in np.random.permutation(np.arange(len(items))):
+                key, w = items[i]
+                theta = g.dump()
+                def pdf(x):
+                    theta[key] = x
+                    g.load(theta)
+                    return g.score_data(shared)
+                theta[key] = slice_sample(theta[key], pdf, thetaw[key])
+                g.load(theta)

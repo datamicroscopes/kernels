@@ -1,17 +1,22 @@
 import numpy as np
 from distributions.dbg.random import sample_discrete_log
 
-def gibbs_hp(m, hpdfs, hgrids):
+def gibbs_hp(m, hparams):
     """
-    run one iteration of gibbs hyperparameter estimation
+    hparams: dict mapping feature id to the following dict:
+        {
+            'hpdf' : <a function taking values of `hgrid' below and returning scores>,
+            'hgrid': <a grid of hyperparameters to try>
+        }
     """
     # XXX: this can be done in parallel
-    for fi, (hpdf, hgrid) in enumerate(zip(hpdfs, hgrids)):
+    for fi, hparam in hparams.iteritems():
+        hpdf, hgrid = hparam['hpdf'], hparam['hgrid']
         scores = np.zeros(len(hgrid))
         for i, hp in enumerate(hgrid):
-            m.set_feature_hp(fi, hp)
+            m.set_feature_hp_raw(fi, hp)
             scores[i] = hpdf(hp) + m.score_data(fi)
-        m.set_feature_hp(fi, hgrid[sample_discrete_log(scores)])
+        m.set_feature_hp_raw(fi, hgrid[sample_discrete_log(scores)])
 
 ###
 # NOTE: while gibbs_assign(), gibbs_assign_nonconj(), and gibbs_assign_fixed()
@@ -62,6 +67,7 @@ def gibbs_assign_nonconj(m, it, nonempty):
     for gid in empty_groups:
         m.delete_group(gid)
     for ei, yi in it:
+        assert not len(m.empty_groups())
         gid = m.remove_entity_from_group(ei, yi)
         if not m.nentities_in_group(gid):
             m.delete_group(gid)
@@ -73,28 +79,3 @@ def gibbs_assign_nonconj(m, it, nonempty):
             if egid == gid:
                 continue
             m.delete_group(egid)
-
-if __name__ == '__main__':
-    from distributions.dbg.models import bb
-    from microscopes.models.mixture.dp import DirichletProcess
-    from microscopes.common.dataset import numpy_dataset
-    import itertools as it
-    def mk_bb_hyperprior_grid(n):
-        return tuple({'alpha':alpha, 'beta':beta} for alpha, beta in it.product(np.linspace(0.01, 10.0, n), repeat=2))
-    def bb_hyperprior_pdf(hp):
-        alpha, beta = hp['alpha'], hp['beta']
-        # http://iacs-courses.seas.harvard.edu/courses/am207/blog/lecture-9.html
-        return -2.5 * np.log(alpha + beta)
-    N = 10
-    D = 5
-    dpmm = DirichletProcess(N, {'alpha':2.0}, [bb]*D, [{'alpha':1.0, 'beta':1.0}]*D)
-    Y_clustered = dpmm.sample(N)
-    Y = np.hstack(Y_clustered)
-    dataset = numpy_dataset(Y)
-    dpmm.bootstrap(dataset.data())
-    hpdfs, hgrids = (bb_hyperprior_pdf, bb_hyperprior_pdf), \
-            (mk_bb_hyperprior_grid(5), mk_bb_hyperprior_grid(5))
-    for _ in xrange(10):
-        for _ in xrange(10):
-            gibbs_assign(dpmm, dataset.data(shuffle=True))
-        gibbs_hp(dpmm, hpdfs, hgrids)

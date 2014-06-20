@@ -16,17 +16,23 @@ class DirichletProcess(object):
             return shared
         self._featureshares = map(init_and_load_shared, zip(self._featuretypes, featurehps))
 
-    def set_cluster_hp(self, clusterhp):
+    def get_cluster_hp_raw(self):
+        return {'alpha':self._alpha}
+
+    def set_cluster_hp_raw(self, raw):
         self._alpha = clusterhp['alpha']
 
-    def set_feature_hp(self, fi, featurehp):
-        self._featureshares[fi].load(featurehp)
-
-    def get_cluster_hp(self):
-        return self._alpha
-
-    def get_feature_hp(self, fi):
+    def get_feature_hp_raw(self, fi):
         return self._featureshares[fi].dump()
+
+    def set_feature_hp_raw(self, fi, raw):
+        self._featureshares[fi].load(raw)
+
+    def get_feature_hp_shared(self, fi):
+        return self._featureshares[fi]
+
+    def get_suff_stats(self, fi):
+        return [(gid, gdata[fi]) for gid, (_, gdata) in self._groups.groupiter()]
 
     def assignments(self):
         return self._groups.assignments()
@@ -45,6 +51,9 @@ class DirichletProcess(object):
 
     def is_group_empty(self, gid):
         return not self._groups.nentities_in_group(gid)
+
+    def groups(self):
+        return [gid for gid, _ in self._groups.groupiter()]
 
     def create_group(self):
         """
@@ -185,8 +194,11 @@ class DirichletProcess(object):
         does not affect the state of the DirichletProcess, and only depends on the prior parameters of the
         DirichletProcess
 
-        returns a k-length tuple of observations, where k is the # of sampled
-        clusters from the CRP
+        returns a tuple of
+            (
+                k-length tuple of observations, where k is the # of sampled clusters from the CRP,
+                k-length tuple of cluster samplers
+            )
         """
         cluster_counts = np.array([1], dtype=np.int)
         def mk_dtype_desc(typ, shared):
@@ -200,7 +212,7 @@ class DirichletProcess(object):
             samp.init(s)
             return samp
         def new_cluster_params():
-            return map(init_sampler, zip(self._featuretypes, self._featureshares))
+            return tuple(map(init_sampler, zip(self._featuretypes, self._featureshares)))
         def new_sample(params):
             data = tuple(samp.eval(s) for samp, s in zip(params, self._featureshares))
             return data
@@ -217,4 +229,4 @@ class DirichletProcess(object):
                 cluster_counts[choice] += 1
                 params = cluster_params[choice]
                 samples[choice].append(new_sample(params))
-        return tuple(np.array(ys, dtype=ydtype) for ys in samples)
+        return tuple(np.array(ys, dtype=ydtype) for ys in samples), tuple(cluster_params)
