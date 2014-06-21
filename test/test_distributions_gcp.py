@@ -76,3 +76,28 @@ def test_niw_dist():
     for value in values:
         assert almost_eq(niw_group.score_value(niw_shared, np.array([value])),
                          nix_group.score_value(nix_shared, value))
+
+def test_niw_mv_dist():
+    # XXX: not really a true test, we just run it with D > 1 to make
+    # sure it doesn't crash
+
+    Q = random_orthonormal_matrix(3)
+    nu0 = 6
+    psi0 = np.dot(Q, np.dot(np.diag([1.0, 0.5, 0.2]), Q.T))
+    lam0 = 0.3
+
+    niw_shared = gcp.Shared()
+    niw_shared.load({'mu':np.ones(3),'lam':lam0,'psi':psi0,'nu':nu0})
+    niw_group = gcp.Group()
+    niw_group.init(niw_shared)
+
+    niw_group.add_value(niw_shared, np.array([1., -3., 43.]))
+    score0 = niw_group.score_data(niw_shared)
+    ll0 = niw_group.score_value(niw_shared, np.ones(3))
+    niw_group.add_value(niw_shared, np.array([34., 3., 2.]))
+    niw_group.remove_value(niw_shared, np.array([34., 3., 2.]))
+    score1 = niw_group.score_data(niw_shared)
+    ll1 = niw_group.score_value(niw_shared, np.ones(3))
+
+    assert almost_eq(score0, score1)
+    assert almost_eq(ll0, ll1)
