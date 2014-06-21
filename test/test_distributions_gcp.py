@@ -1,7 +1,10 @@
-from microscopes.common.util import random_orthonormal_matrix
+from microscopes.common.util import random_orthonormal_matrix, almost_eq
+from microscopes.distributions import gcp
 from microscopes.distributions.gcp import sample_niw, sample_iw
+from distributions.dbg.models import nich
 
 import numpy as np
+from nose.plugins.attrib import attr
 
 #import rpy2.robjects as ro
 #from rpy2.robjects.numpy2ri import activate
@@ -28,3 +31,48 @@ def test_iw_sampler():
     diff = np.linalg.norm(true_mean - py_mean)
     print 'F-norm:', diff
     assert diff <= 0.3
+
+def test_niw_dist():
+    # test by comparing to the 1D NIX model
+
+    mu0 = np.array([30.0])
+    lam0 = 0.3
+    psi0 = np.array([[2.]])
+    nu0 = 3
+
+    # make the NIW case
+    niw_shared = gcp.Shared()
+    niw_shared.load({'mu':mu0,'lam':lam0,'psi':psi0,'nu':nu0})
+    niw_group = gcp.Group()
+    niw_group.init(niw_shared)
+
+    assert niw_shared.dimension() == 1
+
+    # make the NIX case
+    nix_shared = nich.Shared()
+    nix_shared.load({'mu':mu0[0],'kappa':lam0,'sigmasq':psi0[0,0]/nu0,'nu':nu0})
+    nix_group = nich.Group()
+    nix_group.init(nix_shared)
+
+    data = np.array([4., 54., 3., -12., 7., 10.])
+    for d in data:
+        niw_group.add_value(niw_shared, np.array([d]))
+        nix_group.add_value(nix_shared, d)
+
+    # check marginals
+    assert almost_eq(niw_group.score_data(niw_shared),
+                     nix_group.score_data(nix_shared))
+
+    # remove and check
+    niw_group.remove_value(niw_shared, np.array([data[1]]))
+    nix_group.remove_value(nix_shared, np.array([data[1]]))
+
+    assert almost_eq(niw_group.score_data(niw_shared),
+                     nix_group.score_data(nix_shared))
+
+    # check posterior predictive
+    values = np.array([32., -0.1])
+
+    for value in values:
+        assert almost_eq(niw_group.score_value(niw_shared, np.array([value])),
+                         nix_group.score_value(nix_shared, value))

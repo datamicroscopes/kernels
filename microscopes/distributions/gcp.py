@@ -16,11 +16,11 @@ def score_student_t(x, nu, mu, sigma):
     Eq. 313
     """
     d = x.shape[0]
-    term1 = gammaln(nu/2 + d/2) - gammaln(nu/2)
+    term1 = gammaln(nu/2. + d/2.) - gammaln(nu/2.)
     sigmainv = np.linalg.inv(sigma)
-    term2 = -0.5*np.log(np.abs(np.linalg.det(sigma))) - d/2*np.log(nu*math.pi)
+    term2 = -0.5*np.log(np.linalg.det(sigma)) - d/2.*np.log(nu*math.pi)
     diff = x - mu
-    term3 = -0.5*(nu+d)*np.log(1 + 1./nu*np.dot(diff, np.dot(sigmainv, diff)))
+    term3 = -0.5*(nu+d)*np.log(1. + 1./nu*np.dot(diff, np.dot(sigmainv, diff)))
     return term1 + term2 + term3
 
 def sample_iw(nu0, psi0):
@@ -95,7 +95,8 @@ class Group(GroupIoMixin):
         lam_n = lam0 + n
         nu_n = nu0 + n
         diff = xbar - mu0
-        C_n = sum_xxT - np.outer(sum_x, xbar) - np.outer(xbar, sum_x) + np.outer(xbar, xbar)
+        C_n = sum_xxT - np.outer(sum_x, xbar) - np.outer(xbar, sum_x) + n*np.outer(xbar, xbar)
+        #print 'C_%d:'%(n), C_n
         psi_n = psi0 + C_n + lam0*n/(lam0+n)*np.outer(diff, diff)
         return mu_n, lam_n, psi_n, nu_n
 
@@ -104,9 +105,13 @@ class Group(GroupIoMixin):
         Eq. 258
         """
         mu_n, lam_n, psi_n, nu_n = self._post_params(shared)
-        D = shared._mu0.shape[0]
-        Sigma_n = psi_n*(lam_n + 1)/(lam_n*(nu_n-D+1))
-        return score_student_t(value, nu_n-D+1, mu_n, Sigma_n)
+        D = shared.dimension()
+        dof = nu_n-D+1.
+        Sigma_n = psi_n*(lam_n+1.)/(lam_n*dof)
+        #print 'DOF:', dof
+        #print 'mean:', mu_n
+        #print 'cov:', Sigma_n
+        return score_student_t(value, dof, mu_n, Sigma_n)
 
     def score_data(self, shared):
         """
@@ -115,8 +120,8 @@ class Group(GroupIoMixin):
         mu0, lam0, psi0, nu0 = shared._mu0, shared._lam0, shared._psi0, shared._nu0
         mu_n, lam_n, psi_n, nu_n = self._post_params(shared)
         n = self._cnts
-        D = shared._mu0.shape[0]
-        return multigammaln(nu_n/2, D) + nu0/2*np.linalg.det(psi0) - (n*D/2)*np.log(math.pi) - multigammaln(nu0/2, D) - nu_n/2*np.linalg.det(psi_n) + D/2*np.log(lam0/lam_n)
+        D = shared.dimension()
+        return multigammaln(nu_n/2., D) + nu0/2.*np.log(np.linalg.det(psi0)) - (n*D/2.)*np.log(math.pi) - multigammaln(nu0/2., D) - nu_n/2.*np.log(np.linalg.det(psi_n)) + D/2.*np.log(lam0/lam_n)
 
     def sample_value(self, shared):
         sampler = Sampler()
@@ -130,6 +135,8 @@ class Group(GroupIoMixin):
 
 class Sampler(object):
     def init(self, shared, group=None):
+        if group is not None:
+            raise Exception('XXX: implement me!')
         mu0, lam0, psi0, nu0 = shared._mu0, shared._lam0, shared._psi0, shared._nu0
         self._mu, self._sigma = sample_niw(mu0, lam0, psi0, nu0)
 
@@ -137,40 +144,3 @@ class Sampler(object):
         return np.random.multivariate_normal(self._mu, self._sigma)
 
 #def sample_group(shared, size)
-
-# XXX: make this a test case!
-#if __name__ == '__main__':
-#    from microscopes.distributions.gcp_util import random_orthonormal_matrix
-#    from microscopes.common.dataset import numpy_dataset
-#    from microscopes.kernels.gibbs import gibbs_assign
-#    from distributions.dbg.models import bb
-#    import sys
-#    gcp = sys.modules['__main__']
-#
-#    A0 = random_orthonormal_matrix(2)
-#    psi0 = np.dot(np.dot(A0, np.diag([1.0, 0.1])), A0.T)
-#    raw = {
-#        'mu': np.zeros(2),
-#        'lam': 0.3,
-#        'psi': psi0,
-#        'nu' : 3,
-#    }
-#
-#    s = Shared()
-#    s.load(raw)
-#    g = Group()
-#    g.init(s)
-#    g.add_value(s, np.array([1., 2.]))
-#    g.add_value(s, np.array([-3., 54.]))
-#    print g.score_value(s, np.array([3., 0.]))
-#    print g.score_data(s)
-#    g.remove_value(s, np.array([-3., 54.]))
-#
-#    from microscopes.models.mixture.dp import DirichletProcess
-#    dpmm = DirichletProcess(10, {'alpha':2.0}, [gcp, bb], [raw, {'alpha':1.0,'beta':1.0}])
-#    Y_clustered = dpmm.sample(10)
-#    Y = np.hstack(Y_clustered)
-#    dataset = numpy_dataset(Y)
-#    dpmm.bootstrap(dataset.data())
-#    for _ in xrange(3):
-#        gibbs_assign(dpmm, dataset.data(shuffle=True))
