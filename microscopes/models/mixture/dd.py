@@ -20,6 +20,7 @@ class DirichletFixed(object):
             gid = self._create_group()
             assert gid == i
         assert self.ngroups() == k
+        self._nomask = tuple(False for _ in xrange(len(self._featuretypes)))
 
     def get_cluster_hp_raw(self):
         return {'alpha':self._alpha}
@@ -72,18 +73,25 @@ class DirichletFixed(object):
         gdata = map(init_group, zip(self._featuretypes, self._featureshares))
         return self._groups.create_group(gdata)
 
+    def _mask(self, y):
+        return y.mask if hasattr(y, 'mask') else self._nomask
+
     def add_entity_to_group(self, gid, eid, y):
         gdata = self._groups.add_entity_to_group(gid, eid)
-        for (g, s), yi in zip(zip(gdata, self._featureshares), y):
-            g.add_value(s, yi)
+        mask = self._mask(y)
+        for (g, s), (yi, mi) in zip(zip(gdata, self._featureshares), zip(y, mask)):
+            if not mi:
+                g.add_value(s, yi)
 
     def remove_entity_from_group(self, eid, y):
         """
         returns gid
         """
         gid, gdata = self._groups.remove_entity_from_group(eid)
-        for (g, s), yi in zip(zip(gdata, self._featureshares), y):
-            g.remove_value(s, yi)
+        mask = self._mask(y)
+        for (g, s), (yi, mi) in zip(zip(gdata, self._featureshares), zip(y, mask)):
+            if not mi:
+                g.remove_value(s, yi)
         return gid
 
     def score_value(self, y):
@@ -94,9 +102,10 @@ class DirichletFixed(object):
         scores = np.zeros(k, dtype=np.float)
         idmap = np.arange(k)
         n = self.nentities()
+        mask = self._mask(y)
         for idx, (gid, (cnt, gdata)) in enumerate(self._groups.groupiter()):
             lg_term1 = np.log((cnt+self._alpha/k)/(n-1+self._alpha))
-            lg_term2 = sum(g.score_value(s, yi) for (g, s), yi in zip(zip(gdata, self._featureshares), y))
+            lg_term2 = sum(0. if mi else g.score_value(s, yi) for (g, s), (yi, mi) in zip(zip(gdata, self._featureshares), zip(y, mask)))
             scores[idx] = lg_term1 + lg_term2
             idmap[idx] = gid
         return idmap, scores

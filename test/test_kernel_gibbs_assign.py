@@ -61,6 +61,7 @@ def _test_mixture_model_convergence(
         all_possible_assignments_fn,
         canonical_fn,
         kernel_fn,
+        preprocess_data_fn=None,
         burnin_niters=10000,
         nsamples=1000,
         skip=10,
@@ -81,7 +82,11 @@ def _test_mixture_model_convergence(
     actual_scores -= sp.misc.logsumexp(actual_scores)
     actual_scores = np.exp(actual_scores)
 
-    dataset = numpy_dataset(Y)
+    if preprocess_data_fn:
+        Yp = preprocess_data_fn(Y)
+    else:
+        Yp = Y
+    dataset = numpy_dataset(Yp)
     mm.bootstrap(dataset.data(shuffle=False))
 
     # burnin
@@ -118,7 +123,6 @@ def _test_mixture_model_convergence(
 
     assert False, 'failed to converge!'
 
-@attr('FINDME')
 def test_dirichlet_fixed_convergence():
     N = 4
     D = 5
@@ -204,6 +208,20 @@ def test_nonconj_inference_kl():
     _test_mixture_model_convergence(
             dpmm, actual_dpmm, N, permutation_iter,
             permutation_canonical, kernel_fn)
+
+def test_missing_data_inference_kl():
+    N = 3
+    D = 10
+    dpmm = DirichletProcess(N, {'alpha':2.0}, [bb]*D, [{'alpha':1.0, 'beta':1.0}]*D)
+    # XXX: copy.deepcopy() doesn't work for our models, so we manually create a new one
+    actual_dpmm = DirichletProcess(N, {'alpha':2.0}, [bb]*D, [{'alpha':1.0, 'beta':1.0}]*D)
+    def preprocess_fn(Y):
+        import numpy.ma as ma
+        masks = [tuple(j == (i % len(Y)) for j in xrange(D)) for i in xrange(len(Y))]
+        return ma.array(Y, mask=masks)
+    _test_mixture_model_convergence(
+            dpmm, actual_dpmm, N, permutation_iter,
+            permutation_canonical, gibbs_assign, preprocess_fn)
 
 def test_different_datatypes():
     N = 10
