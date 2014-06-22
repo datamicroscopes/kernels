@@ -60,7 +60,7 @@ def _test_mixture_model_convergence(
         N,
         all_possible_assignments_fn,
         canonical_fn,
-        gibbs_assign_fn,
+        kernel_fn,
         burnin_niters=10000,
         nsamples=1000,
         skip=10,
@@ -86,21 +86,39 @@ def _test_mixture_model_convergence(
 
     # burnin
     for _ in xrange(burnin_niters):
-        gibbs_assign_fn(mm, dataset.data(shuffle=True))
+        kernel_fn(mm, dataset.data(shuffle=True))
 
-    # now grab nsamples samples, every skip iters
+    print 'finished burnin of', burnin_niters, 'iters'
+
     smoothing = 1e-5
     gibbs_scores = np.zeros(len(actual_scores)) + smoothing
-    for _ in xrange(nsamples):
-        for _ in xrange(skip):
-            gibbs_assign_fn(mm, dataset.data(shuffle=True))
-        gibbs_scores[idmap[tuple(canonical_fn(mm.assignments()))]] += 1
-    gibbs_scores /= gibbs_scores.sum()
 
-    kldiv = kl(actual_scores, gibbs_scores)
-    print kldiv
-    assert kldiv <= threshold
+    outer = 3
+    last_kl = None
+    while outer > 0:
+        # now grab nsamples samples, every skip iters
+        for _ in xrange(nsamples):
+            for _ in xrange(skip):
+                kernel_fn(mm, dataset.data(shuffle=True))
+            gibbs_scores[idmap[tuple(canonical_fn(mm.assignments()))]] += 1
+        gibbs_scores /= gibbs_scores.sum()
+        kldiv = kl(actual_scores, gibbs_scores)
+        print 'actual:', actual_scores
+        print 'gibbs:', gibbs_scores
+        print 'kl:', kldiv
+        if kldiv <= threshold:
+            return
+        if last_kl is not None and kldiv >= last_kl:
+            print 'WARNING: KL is not making progress!'
+            print 'last KL:', last_kl
+            print 'cur KL:', kldiv
+        last_kl = kldiv
+        outer -= 1
+        print 'WARNING: did not converge, trying', outer, 'more times'
 
+    assert False, 'failed to converge!'
+
+@attr('FINDME')
 def test_dirichlet_fixed_convergence():
     N = 4
     D = 5
@@ -170,6 +188,22 @@ def test_nonconj_inference():
     print 'inferred:', inferred
     print 'diff:', diff
     assert diff <= 0.2
+
+@attr('slow')
+def test_nonconj_inference_kl():
+    N = 2
+    D = 5
+    dpmm = DirichletProcess(N, {'alpha':2.0}, [bbnc]*D, [{'alpha':1.0, 'beta':1.0}]*D)
+    actual_dpmm = DirichletProcess(N, {'alpha':2.0}, [bb]*D, [{'alpha':1.0, 'beta':1.0}]*D)
+    def mkparam():
+        return {'thetaw':{'p':0.1}}
+    thetaparams = { fi : mkparam() for fi in xrange(D) }
+    def kernel_fn(mm, it):
+        gibbs_assign_nonconj(mm, it, nonempty=10)
+        slice_theta(mm, thetaparams)
+    _test_mixture_model_convergence(
+            dpmm, actual_dpmm, N, permutation_iter,
+            permutation_canonical, kernel_fn)
 
 def test_different_datatypes():
     N = 10

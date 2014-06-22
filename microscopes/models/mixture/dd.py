@@ -95,7 +95,7 @@ class DirichletFixed(object):
         idmap = np.arange(k)
         n = self.nentities()
         for idx, (gid, (cnt, gdata)) in enumerate(self._groups.groupiter()):
-            lg_term1 = np.log((cnt + self._alpha/k)/(n-1-self._alpha)) # CRP
+            lg_term1 = np.log((cnt+self._alpha/k)/(n-1+self._alpha))
             lg_term2 = sum(g.score_value(s, yi) for (g, s), yi in zip(zip(gdata, self._featureshares), y))
             scores[idx] = lg_term1 + lg_term2
             idmap[idx] = gid
