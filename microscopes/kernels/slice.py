@@ -88,7 +88,7 @@ def slice_theta(m, thetaparams):
         thetaw = thetaparam['thetaw']
         items = list(thetaw.iteritems())
         shared = m.get_feature_hp_shared(fi)
-        for _, g in m.get_suff_stats(fi):
+        for _, g in m.get_suff_stats_for_feature(fi):
             for i in np.random.permutation(np.arange(len(items))):
                 key, w = items[i]
                 theta = g.dump()

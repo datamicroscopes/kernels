@@ -8,13 +8,14 @@ from microscopes.kernels.gibbs import \
 from microscopes.kernels.slice import slice_theta
 from microscopes.distributions import bbnc
 
-from nose.plugins.attrib import attr
-
 import itertools as it
 import math
 import numpy as np
 import scipy as sp
 import scipy.misc
+
+from common import KL_discrete
+from nose.plugins.attrib import attr
 
 def permutation_canonical(assignments):
     assignments = np.copy(assignments)
@@ -50,9 +51,6 @@ def cluster(Y, assignments):
     for ci, yi in zip(assignments, Y):
         clusters[labels[ci]].append(yi)
     return tuple(np.array(c) for c in clusters)
-
-def kl(a, b):
-    return np.sum([p*np.log(p/q) for p, q in zip(a, b)])
 
 def _test_mixture_model_convergence(
         mm,
@@ -107,7 +105,7 @@ def _test_mixture_model_convergence(
                 kernel_fn(mm, dataset.data(shuffle=True))
             gibbs_scores[idmap[tuple(canonical_fn(mm.assignments()))]] += 1
         gibbs_scores /= gibbs_scores.sum()
-        kldiv = kl(actual_scores, gibbs_scores)
+        kldiv = KL_discrete(actual_scores, gibbs_scores)
         print 'actual:', actual_scores
         print 'gibbs:', gibbs_scores
         print 'kl:', kldiv
@@ -181,7 +179,7 @@ def test_nonconj_inference():
             groups = dpmm.groups()
             inferred_dominant = groups[np.argmax([dpmm.nentities_in_group(gid) for gid in groups])]
             inferred = np.array([
-                [gdata.dump()['p'] for gid, gdata in dpmm.get_suff_stats(d) if gid == inferred_dominant][0] \
+                [gdata.dump()['p'] for gid, gdata in dpmm.get_suff_stats_for_feature(d) if gid == inferred_dominant][0] \
                     for d in xrange(D)])
             yield inferred
 

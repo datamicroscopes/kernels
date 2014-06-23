@@ -26,3 +26,9 @@ def make_one_feature_bb_mm(Nk, K, alpha, beta):
     Y_clustered = tuple(map(gen_cluster, samplers))
     dpmm.fill(Y_clustered)
     return dpmm
+
+def KL_discrete(a, b):
+    return np.sum([p*np.log(p/q) for p, q in zip(a, b)])
+
+def KL_approx(a, b, dA):
+    return np.sum([p*np.log(p/q)*dA for p, q in zip(a, b)])

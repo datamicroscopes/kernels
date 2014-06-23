@@ -3,8 +3,7 @@ from microscopes.kernels.mh import mh_sample
 
 import numpy as np
 
-def kl(a, b, dA):
-    return np.sum([p*np.log(p/q)*dA for p, q in zip(a, b)])
+from common import KL_approx
 
 def hist(data, bins):
     H, _ = np.histogram(data, bins=bins, density=False)
@@ -33,4 +32,4 @@ def test_gauss():
     slice_hist = hist(slice_samples, bins) + smoothing
     slice_hist /= slice_hist.sum()
 
-    assert kl(actual_hist, slice_hist, bins[1]-bins[0]) <= 0.1
+    assert KL_approx(actual_hist, slice_hist, bins[1]-bins[0]) <= 0.1

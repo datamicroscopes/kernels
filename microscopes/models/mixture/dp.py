@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.ma as ma
 
 from microscopes.common.groups import FixedNGroupManager
 from distributions.dbg.random import sample_discrete_log, sample_discrete
@@ -16,6 +17,7 @@ class DirichletProcess(object):
             return shared
         self._featureshares = map(init_and_load_shared, zip(self._featuretypes, featurehps))
         self._nomask = tuple(False for _ in xrange(len(self._featuretypes)))
+        self._y_dtype = self._mk_y_dtype()
 
     def get_cluster_hp_raw(self):
         return {'alpha':self._alpha}
@@ -32,8 +34,11 @@ class DirichletProcess(object):
     def get_feature_hp_shared(self, fi):
         return self._featureshares[fi]
 
-    def get_suff_stats(self, fi):
+    def get_suff_stats_for_feature(self, fi):
         return [(gid, gdata[fi]) for gid, (_, gdata) in self._groups.groupiter()]
+
+    def get_suff_stats_for_group(self, gid):
+        return self._groups.group_data(gid)
 
     def assignments(self):
         return self._groups.assignments()
@@ -98,32 +103,43 @@ class DirichletProcess(object):
         """
         scores = np.zeros(self._groups.ngroups(), dtype=np.float)
         idmap = [0]*self._groups.ngroups()
-        n = self._groups.nentities()
         n_empty_groups = len(self.empty_groups())
         assert n_empty_groups > 0
         empty_group_alpha = self._alpha / n_empty_groups # all empty groups share the alpha equally
         mask = self._mask(y)
+        nentities = 0
         for idx, (gid, (cnt, gdata)) in enumerate(self._groups.groupiter()):
-            lg_term1 = np.log((empty_group_alpha if not cnt else cnt)/(n-1+self._alpha)) # CRP
+            lg_term1 = np.log(empty_group_alpha if not cnt else cnt)
+            nentities += cnt
             lg_term2 = sum(0. if mi else g.score_value(s, yi) for (g, s), (yi, mi) in zip(zip(gdata, self._featureshares), zip(y, mask)))
             scores[idx] = lg_term1 + lg_term2
             idmap[idx] = gid
+        scores -= np.log(nentities + self._alpha)
         return idmap, scores
 
-    def score_data(self, fi=None):
+    def score_data(self, features=None, groups=None):
         """
         computes log p(Y_{fi} | C) = \sum{k=1}^{K} log p(Y_{fi}^{k}),
         where Y_{fi}^{k} is the slice of data along the fi-th feature belonging to the
         k-th cluster
-
-        if fi is None, scores the data along every feature
         """
+
+        if features is None:
+            features = np.arange(len(self._featuretypes))
+        elif type(features) == int:
+            features = [features]
+
+        if groups is None:
+            groups = [gdata for _, (_, gdata) in self._groups.groupiter()]
+        elif type(groups) == int:
+            groups = [self._groups.group_data(groups)]
+        else:
+            groups = [self._groups.group_data(g) for g in groups]
+
         score = 0.0
-        for _, (_, gdata) in self._groups.groupiter():
-            if fi is not None:
+        for gdata in groups:
+            for fi in features:
                 score += gdata[fi].score_data(self._featureshares[fi])
-            else:
-                score += sum(g.score_data(s) for g, s in zip(gdata, self._featureshares))
         return score
 
     def score_assignment(self):
@@ -148,7 +164,44 @@ class DirichletProcess(object):
         """
         computes log p(C, Y) = log p(C) + log p(Y|C)
         """
-        return self.score_assignment() + self.score_data(fi=None)
+        return self.score_assignment() + self.score_data(features=None, groups=None)
+
+    def sample_post_pred(self, y_new=None):
+        """
+        draw a sample from p(y_new | C, Y)
+
+        y_new is a masked array indicating which features to condition on. if
+        y_new is None, then condition on no features
+
+        this can be interpreted as "filling in the missing values"
+        """
+
+        if y_new is None:
+            y_new = ma.zeros(len(self._featuretypes))
+            y_new[:] = ma.masked
+
+        # sample a cluster using the given values to weight the cluster
+        # probabilities
+
+        ### XXX: groups should really have a "resample from prior" interface
+        ### so we don't have to keep creating and deleting groups
+
+        empty_gids = list(self.empty_groups())
+        for gid in empty_gids:
+            self.delete_group(gid)
+        egid = self.create_group()
+
+        idmap, scores = self.score_value(y_new)
+        gid = idmap[sample_discrete_log(scores)]
+        gdata = self._groups.group_data(gid)
+
+        # sample the missing values conditioned on the sampled cluster
+        def pick(i):
+            if y_new.mask[i]:
+                return gdata[i].sample_value(self._featureshares[i])
+            else:
+                return y_new[i]
+        return np.array([tuple(map(pick, xrange(len(self._featuretypes))))], dtype=self._y_dtype)
 
     def reset(self):
         """
@@ -196,6 +249,15 @@ class DirichletProcess(object):
 
         assert self._groups.all_entities_assigned()
 
+    def _mk_dtype_desc(self, fi):
+        typ, shared = self._featuretypes[fi], self._featureshares[fi]
+        if hasattr(shared, 'dimension') and shared.dimension() > 1:
+            return ('', typ.Value, (shared.dimension(),))
+        return ('', typ.Value)
+
+    def _mk_y_dtype(self):
+        return [self._mk_dtype_desc(i) for i in xrange(len(self._featuretypes))]
+
     def sample(self, n):
         """
         generate n iid samples from the underlying generative process described by this DirichletProcess.
@@ -210,11 +272,6 @@ class DirichletProcess(object):
             )
         """
         cluster_counts = np.array([1], dtype=np.int)
-        def mk_dtype_desc(typ, shared):
-            if hasattr(shared, 'dimension') and shared.dimension() > 1:
-                return ('', typ.Value, (shared.dimension(),))
-            return ('', typ.Value)
-        ydtype = [mk_dtype_desc(typ, shared) for typ, shared in zip(self._featuretypes, self._featureshares)]
         def init_sampler(arg):
             typ, s = arg
             samp = typ.Sampler()
@@ -238,4 +295,4 @@ class DirichletProcess(object):
                 cluster_counts[choice] += 1
                 params = cluster_params[choice]
                 samples[choice].append(new_sample(params))
-        return tuple(np.array(ys, dtype=ydtype) for ys in samples), tuple(cluster_params)
+        return tuple(np.array(ys, dtype=self._y_dtype) for ys in samples), tuple(cluster_params)
