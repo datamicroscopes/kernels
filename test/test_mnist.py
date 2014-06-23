@@ -20,15 +20,16 @@ def test_mnist():
     W = int(math.sqrt(D))
     assert W * W == D
     dtype = [('', bool)]*D
-    N_sampled = 50
+    N_sampled = min(300, N)
+    print 'sampling', N_sampled, 'out of', N
     perm = np.random.permutation(np.arange(N))
     inds = perm[:N_sampled]
     Y_sampled = np.array([tuple(y) for y in Y[inds]], dtype=dtype)
 
     present = D/2
     absent = D-present
-    #y_test = tuple(Y[perm[N_sampled]]) # never seen before
-    y_test = tuple(Y[perm[0]])
+    y_test = tuple(Y[perm[N_sampled]]) # never seen before
+    #y_test = tuple(Y[perm[0]])
     y_new = ma.masked_array(
         np.array([y_test], dtype=[('', bool)]*D),
         mask=[(False,)*present + (True,)*absent])[0]
