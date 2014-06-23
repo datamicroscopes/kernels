@@ -36,16 +36,28 @@ def test_kernel_mh_hp():
         return {'alpha':alpha,'beta':beta}
 
     hparams = {0:{'hpdf':bb_hyperprior_pdf,'hcondpdf':gauss_prop_pdf,'hsamp':gauss_prop_sampler}}
-    def posterior(k, skip):
-        for _ in xrange(k):
-            for _ in xrange(skip-1):
-                mh_hp(dpmm, hparams)
-            mh_hp(dpmm, hparams)
-            hp = dpmm.get_feature_hp_raw(0)
-            yield np.array([hp['alpha'], hp['beta']])
-    values = list(posterior(2000, 100))
-    avg = sum(values) / len(values)
 
-    #print avg
-    #print values
-    assert np.linalg.norm( np.array([1., 1.]) - avg ) <= 0.15
+    values = []
+    last_diff = None
+    def unit():
+        def posterior(k, skip):
+            for _ in xrange(k):
+                for _ in xrange(skip-1):
+                    mh_hp(dpmm, hparams)
+                mh_hp(dpmm, hparams)
+                hp = dpmm.get_feature_hp_raw(0)
+                yield np.array([hp['alpha'], hp['beta']])
+        values.extend(list(posterior(2000, 100)))
+
+    for i in xrange(5):
+        unit()
+        avg = sum(values) / len(values)
+        diff = np.linalg.norm( np.array([1., 1.]) - avg )
+        print 'iter:', (i+1), 'avg:', avg, 'diff:', diff
+        if diff <= 0.1:
+            return
+        if last_diff is not None and diff > last_diff:
+            print 'WARNING: making negative progress'
+        last_diff = diff
+
+    assert False, 'did not converge'
