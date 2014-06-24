@@ -1,9 +1,8 @@
 from scipy.stats import norm
 from microscopes.kernels.slice import slice_sample
+from microscopes.common.util import KL_approx
 
 import numpy as np
-
-from common import KL_approx
 
 def hist(data, bins):
     H, _ = np.histogram(data, bins=bins, density=False)

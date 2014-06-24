@@ -3,6 +3,7 @@ from distributions.dbg.models import bb, gp, nich
 from microscopes.models.mixture.dp import DirichletProcess
 from microscopes.models.mixture.dd import DirichletFixed
 from microscopes.common.dataset import numpy_dataset
+from microscopes.common.util import KL_discrete
 from microscopes.kernels.gibbs import \
         gibbs_assign, gibbs_assign_fixed, gibbs_assign_nonconj
 from microscopes.kernels.slice import slice_theta
@@ -14,7 +15,6 @@ import numpy as np
 import scipy as sp
 import scipy.misc
 
-from common import KL_discrete
 from nose.plugins.attrib import attr
 
 def permutation_canonical(assignments):
