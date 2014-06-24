@@ -52,5 +52,5 @@ def test_mnist():
     Y_samples = np.array([postpred_sample() for _ in xrange(1)])
     Y_avg = Y_samples.mean(axis=0)
 
-    plt.imshow(Y_avg.reshape((W, W)), cmap=plt.cm.binary)
+    plt.imshow(Y_avg.reshape((W, W)), cmap=plt.cm.binary, interpolation='nearest')
     plt.savefig('postpred_digit2.pdf')
