@@ -198,7 +198,7 @@ def test_kernel_gibbs_hp():
         burnin=0,
         nsamples=100)
 
-@attr('wip')
+@attr('slow')
 def test_kernel_slice_hp():
     def init_inf_kernel_state_fn(dpmm):
         hparams = {0:{'hpdf':_bb_hyperprior_pdf,'hw':{'alpha':0.5,'beta':0.5}}}
