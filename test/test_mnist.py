@@ -1,7 +1,7 @@
 from distributions.dbg.models import bb
-from microscopes.common.dataset import numpy_dataset
-from microscopes.models.mixture.dp import DirichletProcess
-from microscopes.kernels.gibbs import gibbs_assign
+from microscopes.py.common.dataview import numpy_dataview
+from microscopes.py.mixture.dp import state
+from microscopes.py.kernels.gibbs import gibbs_assign
 
 from sklearn.datasets import fetch_mldata
 mnist_dataset = fetch_mldata('MNIST original')
@@ -12,6 +12,13 @@ import matplotlib.pylab as plt
 import math
 
 from nose.plugins.attrib import attr
+
+def make_dp(n, models, clusterhp, featurehps):
+    mm = state(n, models)
+    mm.set_cluster_hp(clusterhp)
+    for i, hp in enumerate(featurehps):
+        mm.set_feature_hp(i, hp)
+    return mm
 
 @attr('slow')
 def test_mnist():
@@ -34,14 +41,15 @@ def test_mnist():
         np.array([y_test], dtype=[('', bool)]*D),
         mask=[(False,)*present + (True,)*absent])[0]
 
-    dataset = numpy_dataset(Y_sampled)
-    mm = DirichletProcess(N_sampled, {'alpha':2.0}, [bb]*D, [{'alpha':1.0, 'beta':1.0}]*D)
+    dataset = numpy_dataview(Y_sampled)
+    mm = make_dp(N_sampled, [bb]*D, {'alpha':2.0}, [{'alpha':1.0, 'beta':1.0}]*D)
     mm.bootstrap(dataset.data(shuffle=False))
 
     burnin_niters = 2000
     for _ in xrange(burnin_niters):
         gibbs_assign(mm, dataset.data(shuffle=True))
     print 'finished burnin of', burnin_niters, 'iters'
+    print 'clusters so far:', mm.ngroups()
 
     def postpred_sample():
         Y_samples = [mm.sample_post_pred(y_new=y_new) for _ in xrange(10000)]

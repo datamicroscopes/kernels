@@ -1,6 +1,6 @@
 from scipy.stats import norm
-from microscopes.kernels.slice import slice_sample
-from microscopes.common.util import KL_approx
+from microscopes.py.kernels.slice import slice_sample
+from microscopes.py.common.util import KL_approx
 
 import numpy as np
 

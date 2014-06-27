@@ -1,8 +1,8 @@
-from microscopes.models.mixture.dp import DirichletProcess
-from microscopes.kernels.mh import mh_hp
-from microscopes.kernels.gibbs import gibbs_hp
-from microscopes.kernels.slice import slice_hp
-from microscopes.common.util import almost_eq
+from microscopes.py.mixture.dp import state
+from microscopes.py.kernels.mh import mh_hp
+from microscopes.py.kernels.gibbs import gibbs_hp
+from microscopes.py.kernels.slice import slice_hp
+from microscopes.py.common.util import almost_eq
 from distributions.dbg.models import bb
 
 import numpy as np
@@ -22,7 +22,9 @@ def _bb_hyperprior_pdf(hp):
     return -np.inf
 
 def _make_one_feature_bb_mm(Nk, K, alpha, beta):
-    dpmm = DirichletProcess(K*Nk, {'alpha':2.0}, [bb], [{'alpha':alpha,'beta':beta}])
+    dpmm = state(K*Nk, [bb])
+    dpmm.set_cluster_hp({'alpha':2.0})
+    dpmm.set_feature_hp(0, {'alpha':alpha,'beta':beta})
     shared = bb.Shared()
     shared.load({'alpha':alpha,'beta':beta})
     def init_sampler():
@@ -47,7 +49,7 @@ def _grid_actual(mm, lo, hi, nelems):
             alpha = xv[i, j]
             beta = yv[i, j]
             raw = {'alpha':alpha, 'beta':beta}
-            mm.set_feature_hp_raw(0, raw)
+            mm.set_feature_hp(0, raw)
             z[i, j] = _bb_hyperprior_pdf(raw) + mm.score_data(0)
     return xv, yv, z
 
@@ -92,7 +94,7 @@ def _test_hp_inference(
 
     th_draw = lambda: np.random.uniform(grid_min, grid_max)
     alpha0, beta0 = th_draw(), th_draw()
-    dpmm.set_feature_hp_raw(0, {'alpha':alpha0,'beta':beta0})
+    dpmm.set_feature_hp(0, {'alpha':alpha0,'beta':beta0})
     print 'start values:', alpha0, beta0
 
     z_sample = np.zeros(xgrid.shape)
@@ -107,7 +109,7 @@ def _test_hp_inference(
                 for _ in xrange(skip-1):
                     inf_kernel_fn(dpmm, opaque)
                 inf_kernel_fn(dpmm, opaque)
-                hp = dpmm.get_feature_hp_raw(0)
+                hp = dpmm.get_feature_hp(0)
                 yield np.array([hp['alpha'], hp['beta']])
         for samp in posterior(nsamples, skip):
             _add_to_grid(xgrid, ygrid, z_sample, samp)

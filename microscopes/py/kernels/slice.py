@@ -71,17 +71,17 @@ def slice_hp(m, hparams):
         items = list(hw.iteritems())
         for i in np.random.permutation(np.arange(len(items))):
             key, w = items[i]
-            hp = m.get_feature_hp_raw(fi)
+            hp = m.get_feature_hp(fi)
             #print 'slicing on', key, 'with current value', hp
             def pdf(x):
                 hp[key] = x
                 #print '  * slice:', hp
-                m.set_feature_hp_raw(fi, hp)
+                m.set_feature_hp(fi, hp)
                 return hpdf(hp) + m.score_data(fi)
             hp[key] = slice_sample(hp[key], pdf, hw[key])
             #print 'sample result:', hp
             #print
-            m.set_feature_hp_raw(fi, hp)
+            m.set_feature_hp(fi, hp)
 
 def slice_theta(m, thetaparams):
     """

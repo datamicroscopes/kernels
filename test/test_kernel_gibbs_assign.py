@@ -1,13 +1,13 @@
 from distributions.dbg.models import bb, gp, nich
 
-from microscopes.models.mixture.dp import DirichletProcess
-from microscopes.models.mixture.dd import DirichletFixed
-from microscopes.common.dataset import numpy_dataset
-from microscopes.common.util import KL_discrete
-from microscopes.kernels.gibbs import \
+from microscopes.py.mixture.dp import state as dp_state
+from microscopes.py.mixture.dd import state as dd_state
+from microscopes.py.common.dataview import numpy_dataview
+from microscopes.py.common.util import KL_discrete
+from microscopes.py.kernels.gibbs import \
         gibbs_assign, gibbs_assign_fixed, gibbs_assign_nonconj
-from microscopes.kernels.slice import slice_theta
-from microscopes.distributions import bbnc
+from microscopes.py.kernels.slice import slice_theta
+from microscopes.py.models import bbnc
 
 import itertools as it
 import math
@@ -16,6 +16,20 @@ import scipy as sp
 import scipy.misc
 
 from nose.plugins.attrib import attr
+
+def make_dp(n, models, clusterhp, featurehps):
+    mm = dp_state(n, models)
+    mm.set_cluster_hp(clusterhp)
+    for i, hp in enumerate(featurehps):
+        mm.set_feature_hp(i, hp)
+    return mm
+
+def make_dd(n, k, models, clusterhp, featurehps):
+    mm = dd_state(n, k, models)
+    mm.set_cluster_hp(clusterhp)
+    for i, hp in enumerate(featurehps):
+        mm.set_feature_hp(i, hp)
+    return mm
 
 def permutation_canonical(assignments):
     assignments = np.copy(assignments)
@@ -84,7 +98,7 @@ def _test_mixture_model_convergence(
         Yp = preprocess_data_fn(Y)
     else:
         Yp = Y
-    dataset = numpy_dataset(Yp)
+    dataset = numpy_dataview(Yp)
     mm.bootstrap(dataset.data(shuffle=False))
 
     # burnin
@@ -125,9 +139,9 @@ def test_dirichlet_fixed_convergence():
     N = 4
     D = 5
     K = 2
-    ddmm = DirichletFixed(N, K, {'alpha':2.0}, [bb]*D, [{'alpha':1.0, 'beta':1.0}]*D)
-    # XXX: copy.deepcopy() doesn't work for our models, so we manually create a new one
-    actual_ddmm = DirichletFixed(N, K, {'alpha':2.0}, [bb]*D, [{'alpha':1.0, 'beta':1.0}]*D)
+    ddmm, actual_ddmm = \
+        make_dd(N, K, [bb]*D, {'alpha':2.0}, [{'alpha':1.0, 'beta':1.0}]*D), \
+        make_dd(N, K, [bb]*D, {'alpha':2.0}, [{'alpha':1.0, 'beta':1.0}]*D)
     def all_possible_assignments_fn(N):
         return it.product(range(K), repeat=N)
     canonical_fn = lambda x: x
@@ -138,9 +152,9 @@ def test_dirichlet_fixed_convergence():
 def test_dirichlet_process_convergence():
     N = 4
     D = 5
-    dpmm = DirichletProcess(N, {'alpha':2.0}, [bb]*D, [{'alpha':1.0, 'beta':1.0}]*D)
-    # XXX: copy.deepcopy() doesn't work for our models, so we manually create a new one
-    actual_dpmm = DirichletProcess(N, {'alpha':2.0}, [bb]*D, [{'alpha':1.0, 'beta':1.0}]*D)
+    dpmm, actual_dpmm = \
+        make_dp(N, [bb]*D, {'alpha':2.0}, [{'alpha':1.0, 'beta':1.0}]*D), \
+        make_dp(N, [bb]*D, {'alpha':2.0}, [{'alpha':1.0, 'beta':1.0}]*D)
     _test_mixture_model_convergence(
             dpmm, actual_dpmm, N, permutation_iter,
             permutation_canonical, gibbs_assign)
@@ -149,7 +163,7 @@ def test_dirichlet_process_convergence():
 def test_nonconj_inference():
     N = 1000
     D = 5
-    dpmm = DirichletProcess(N, {'alpha':0.2}, [bbnc]*D, [{'alpha':1.0, 'beta':1.0}]*D)
+    dpmm = make_dp(N, [bbnc]*D, {'alpha':0.2}, [{'alpha':1.0, 'beta':1.0}]*D)
     while True:
         Y_clustered, cluster_samplers = dpmm.sample(N)
         if len(Y_clustered) == 2 and max(map(len, Y_clustered)) >= 0.7:
@@ -164,7 +178,7 @@ def test_nonconj_inference():
     # DP with the correct assignment (but not with the correct p-values)
     dpmm.fill(Y_clustered)
     Y = np.hstack(Y_clustered)
-    dataset = numpy_dataset(Y)
+    dataset = numpy_dataview(Y)
 
     def mkparam():
         return {'thetaw':{'p':0.1}}
@@ -195,8 +209,9 @@ def test_nonconj_inference():
 def test_nonconj_inference_kl():
     N = 2
     D = 5
-    dpmm = DirichletProcess(N, {'alpha':2.0}, [bbnc]*D, [{'alpha':1.0, 'beta':1.0}]*D)
-    actual_dpmm = DirichletProcess(N, {'alpha':2.0}, [bb]*D, [{'alpha':1.0, 'beta':1.0}]*D)
+    dpmm, actual_dpmm = \
+        make_dp(N, [bb]*D, {'alpha':2.0}, [{'alpha':1.0, 'beta':1.0}]*D), \
+        make_dp(N, [bb]*D, {'alpha':2.0}, [{'alpha':1.0, 'beta':1.0}]*D)
     def mkparam():
         return {'thetaw':{'p':0.1}}
     thetaparams = { fi : mkparam() for fi in xrange(D) }
@@ -210,9 +225,9 @@ def test_nonconj_inference_kl():
 def test_missing_data_inference_kl():
     N = 3
     D = 10
-    dpmm = DirichletProcess(N, {'alpha':2.0}, [bb]*D, [{'alpha':1.0, 'beta':1.0}]*D)
-    # XXX: copy.deepcopy() doesn't work for our models, so we manually create a new one
-    actual_dpmm = DirichletProcess(N, {'alpha':2.0}, [bb]*D, [{'alpha':1.0, 'beta':1.0}]*D)
+    dpmm, actual_dpmm = \
+        make_dp(N, [bb]*D, {'alpha':2.0}, [{'alpha':1.0, 'beta':1.0}]*D), \
+        make_dp(N, [bb]*D, {'alpha':2.0}, [{'alpha':1.0, 'beta':1.0}]*D)
     def preprocess_fn(Y):
         import numpy.ma as ma
         masks = [tuple(j == (i % len(Y)) for j in xrange(D)) for i in xrange(len(Y))]
@@ -229,11 +244,11 @@ def test_different_datatypes():
         {'alpha':2.0, 'inv_beta':1.0},
         {'mu': 0., 'kappa': 1., 'sigmasq': 1., 'nu': 1.},
         {'alpha':2.0, 'beta':1.0}]
-    dpmm = DirichletProcess(N, {'alpha':2.0}, likelihoods, hyperparams)
+    dpmm = make_dp(N, likelihoods, {'alpha':2.0}, hyperparams)
     Y_clustered, _ = dpmm.sample(N)
     Y = np.hstack(Y_clustered)
     assert Y.shape[0] == N
-    dataset = numpy_dataset(Y)
+    dataset = numpy_dataview(Y)
     dpmm.bootstrap(dataset.data(shuffle=False))
 
     # make sure it deals with different types
