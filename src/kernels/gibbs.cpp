@@ -5,6 +5,26 @@ using namespace std;
 using namespace microscopes::common;
 using namespace microscopes::mixture;
 using namespace microscopes::kernels;
+using namespace microscopes::models;
+
+void
+gibbs::hp(state &s, const vector<pair<size_t, grid_t>> &params, rng_t &rng)
+{
+  vector<float> scores;
+  for (auto &p : params) {
+    const size_t fid = p.first;
+    const vector<size_t> features({fid});
+    const grid_t &g = p.second;
+    scores.reserve(g.size());
+    scores.clear();
+    for (auto &g0 : g) {
+      s.set_feature_hp(fid, *g0.first);
+      scores.push_back(g0.second + s.score_data(features, rng));
+    }
+    const auto choice = util::sample_discrete_log(scores, rng);
+    s.set_feature_hp(fid, *g[choice].first);
+  }
+}
 
 void
 gibbs::assign(state &s, dataview &view, rng_t &rng)
