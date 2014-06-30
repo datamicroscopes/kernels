@@ -19,7 +19,6 @@ def hp(state s, dict params, rng r):
     for fi, ps in params.iteritems():
         g0.clear()
         prior_fn, grid = ps['hpdf'], ps['hgrid']
-        assert len(grid) == len(s._models)
         for p in grid:
             prior_score = prior_fn(p)
             ptrs.push_back((<factory>s._models[fi][1]).new_cmodel())
