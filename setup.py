@@ -80,6 +80,7 @@ def make_extension(module_name):
 
 extensions = cythonize([
     make_extension('microscopes.cxx.kernels.gibbs'),
+    make_extension('microscopes.cxx.kernels.slice'),
     make_extension('microscopes.cxx.kernels.bootstrap'),
 ], include_path=['../common', '../mixturemodel'])
 

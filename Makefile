@@ -1,9 +1,12 @@
 -include config.mk
 
 DEBUG ?= 0
+NOSE_TIMEOUT ?= 600
 
 O := out
 TOP := $(shell echo $${PWD-`pwd`})
+
+CPUCOUNT := $(shell python -c 'import multiprocessing as m; print m.cpu_count()')
 
 # set the CXXFLAGS
 CXXFLAGS := -fPIC -g -MD -Wall -std=c++0x -I$(TOP)/include
@@ -63,8 +66,8 @@ clean:
 
 .PHONY: test
 test:
-	$(LIBPATH_VARNAME)=$$$(LIBPATH_VARNAME):../common/out:../mixturemodel/out:./out PYTHONPATH=$$PYTHONPATH:../common:../mixturemodel:. nosetests
+	$(LIBPATH_VARNAME)=$$$(LIBPATH_VARNAME):../common/out:../mixturemodel/out:./out PYTHONPATH=$$PYTHONPATH:../common:../mixturemodel:. nosetests 
 
 .PHONY: fast_test
 fast_test:
-	$(LIBPATH_VARNAME)=$$$(LIBPATH_VARNAME):../common/out:../mixturemodel/out:./out PYTHONPATH=$$PYTHONPATH:../common:../mixturemodel:. nosetests -a '!slow'
+	$(LIBPATH_VARNAME)=$$$(LIBPATH_VARNAME):../common/out:../mixturemodel/out:./out PYTHONPATH=$$PYTHONPATH:../common:../mixturemodel:. nosetests -a '!slow' 

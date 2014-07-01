@@ -1,15 +1,17 @@
 from microscopes.py.mixture.dp import state as py_state, fill
 from microscopes.py.kernels.gibbs import gibbs_hp as py_gibbs_hp
+from microscopes.py.kernels.slice import slice_hp as py_slice_hp
 from distributions.dbg.models import bb as py_bb
 
 from microscopes.cxx.mixture.model import state as cxx_state
 from microscopes.cxx.kernels.gibbs import hp as cxx_gibbs_hp
+from microscopes.cxx.kernels.slice import hp as cxx_slice_hp
 from microscopes.cxx.models import bb as cxx_bb
 from microscopes.cxx.common.rng import rng
+from microscopes.cxx.common.scalar_functions import log_exponential
 
 from microscopes.py.common.util import almost_eq
 from microscopes.py.kernels.mh import mh_hp
-from microscopes.py.kernels.slice import slice_hp
 
 import numpy as np
 import math
@@ -48,7 +50,7 @@ def _make_one_feature_bb_mm(ctor, bbmodel, Nk, K, alpha, beta, r):
     fill(s, Y_clustered, r)
     return s, Y_clustered
 
-def _grid_actual(s, lo, hi, nelems, r):
+def _grid_actual(s, prior_fn, lo, hi, nelems, r):
     x = np.linspace(lo, hi, nelems)
     y = x.copy()
     xv, yv = np.meshgrid(x, y)
@@ -59,7 +61,7 @@ def _grid_actual(s, lo, hi, nelems, r):
             beta = yv[i, j]
             raw = {'alpha':alpha, 'beta':beta}
             s.set_feature_hp(0, raw)
-            z[i, j] = _bb_hyperprior_pdf(raw) + s.score_data(0, r)
+            z[i, j] = prior_fn(raw) + s.score_data(0, r)
     return xv, yv, z
 
 def _add_to_grid(xv, yv, z, value):
@@ -78,6 +80,7 @@ def _add_to_grid(xv, yv, z, value):
 def _test_hp_inference(
     ctor,
     bbmodel,
+    prior_fn,
     grid_min, grid_max, grid_n,
     init_inf_kernel_state_fn,
     inf_kernel_fn,
@@ -92,7 +95,7 @@ def _test_hp_inference(
     K = 100
     s, Y_clustered = _make_one_feature_bb_mm(ctor, bbmodel, Nk, K, 0.8, 1.2, prng)
 
-    xgrid, ygrid, z_actual = _grid_actual(s, grid_min, grid_max, grid_n, prng)
+    xgrid, ygrid, z_actual = _grid_actual(s, prior_fn, grid_min, grid_max, grid_n, prng)
 
     i_actual, j_actual = np.unravel_index(np.argmax(z_actual), z_actual.shape)
     assert almost_eq(z_actual[i_actual, j_actual], z_actual.max())
@@ -123,6 +126,7 @@ def _test_hp_inference(
                 hp = s.get_feature_hp(0)
                 yield np.array([hp['alpha'], hp['beta']])
         for samp in posterior(nsamples, skip):
+            #print 'gridding:', samp
             _add_to_grid(xgrid, ygrid, z_sample, samp)
 
     def draw_grid_plot():
@@ -171,14 +175,15 @@ def _test_kernel_gibbs_hp(ctor, bbmodel, gibbs_hp_fn, fname, prng):
     _test_hp_inference(
         ctor,
         bbmodel,
+        _bb_hyperprior_pdf,
         grid_min, grid_max, grid_n,
         init_inf_kernel_state_fn,
         gibbs_hp_fn,
         map_actual_postprocess_fn,
         grid_filename=fname,
         prng=prng,
-        burnin=0,
-        trials=5,
+        burnin=100,
+        trials=10,
         nsamples=100)
 
 @attr('slow')
@@ -187,7 +192,42 @@ def test_kernel_gibbs_hp_py():
 
 @attr('slow')
 def test_kernel_gibbs_hp_cxx():
-    _test_kernel_gibbs_hp(cxx_state, cxx_bb, cxx_gibbs_hp, 'grid_gibbs_hp_samples_cxx.pdf', rng(3954335))
+    _test_kernel_gibbs_hp(cxx_state, cxx_bb, cxx_gibbs_hp, 'grid_gibbs_hp_samples_cxx.pdf', rng())
+
+def _test_kernel_slice_hp(ctor, bbmodel, slice_hp_fn, fname, prng):
+    grid_min, grid_max, grid_n = 0.01, 5.0, 200
+    indiv_prior_fn = log_exponential(1.2)
+    def init_inf_kernel_state_fn(s):
+        hparams = {
+            0 : {
+                'alpha' : (indiv_prior_fn, 1.5),
+                'beta'  : (indiv_prior_fn, 1.5),
+                }
+            }
+        return hparams
+    def prior_fn(raw):
+        return indiv_prior_fn(raw['alpha']) + indiv_prior_fn(raw['beta'])
+    _test_hp_inference(
+        ctor,
+        bbmodel,
+        prior_fn,
+        grid_min, grid_max, grid_n,
+        init_inf_kernel_state_fn,
+        slice_hp_fn,
+        map_actual_postprocess_fn=lambda x: x,
+        grid_filename=fname,
+        prng=prng,
+        burnin=100,
+        trials=10,
+        nsamples=100)
+
+@attr('slow')
+def test_kernel_slice_hp_py():
+    _test_kernel_slice_hp(py_state, py_bb, py_slice_hp, 'grid_slice_hp_py_samples.pdf', None)
+
+@attr('slow')
+def test_kernel_slice_hp_cxx():
+    _test_kernel_slice_hp(cxx_state, cxx_bb, cxx_slice_hp, 'grid_slice_hp_cxx_samples.pdf', rng())
 
 #@attr('slow')
 #def test_kernel_mh_hp():
@@ -221,22 +261,3 @@ def test_kernel_gibbs_hp_cxx():
 #        mh_hp,
 #        lambda x: x,
 #        'grid_mh_hp_samples.pdf')
-
-
-#@attr('slow')
-#def test_kernel_slice_hp():
-#    def init_inf_kernel_state_fn(dpmm):
-#        hparams = {0:{'hpdf':_bb_hyperprior_pdf,'hw':{'alpha':0.5,'beta':0.5}}}
-#        return hparams
-#
-#    def inf_kernel_fn(dpmm, hparams):
-#        slice_hp(dpmm, hparams)
-#
-#    _test_hp_inference(
-#        init_inf_kernel_state_fn,
-#        slice_hp,
-#        lambda x: x,
-#        'grid_slice_hp_samples.pdf',
-#        burnin=1000,
-#        nsamples=1000,
-#        tol=0.15)

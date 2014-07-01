@@ -52,35 +52,23 @@ def shrink(pdf, x0, y, L, R):
     logging.warn('shrink exceeded maximum iterations (%d)' % (ntries))
     return x1
 
-def slice_sample(x0, pdf, w):
+def slice_sample(pdf, x0, w, r=None):
     y = np.log(np.random.random()) + pdf(x0)
     L, R = interval(pdf, x0, y, w, 1000)
     return shrink(pdf, x0, y, L, R)
 
-def slice_hp(m, hparams):
-    """
-    hparams: dict mapping feature id to the following dict:
-        {
-            'hpdf' : <TODO: fill me in>,
-            'hgrid': <TODO: fill me in>
-        }
-    """
+def slice_hp(m, hparams, r=None):
     # XXX: this can be done in parallel
     for fi, hparam in hparams.iteritems():
-        hpdf, hw = hparam['hpdf'], hparam['hw']
-        items = list(hw.iteritems())
+        hp = m.get_feature_hp(fi)
+        items = list(hparam.iteritems())
         for i in np.random.permutation(np.arange(len(items))):
-            key, w = items[i]
-            hp = m.get_feature_hp(fi)
-            #print 'slicing on', key, 'with current value', hp
+            key, (scorefn, w) = items[i]
             def pdf(x):
                 hp[key] = x
-                #print '  * slice:', hp
                 m.set_feature_hp(fi, hp)
-                return hpdf(hp) + m.score_data(fi)
-            hp[key] = slice_sample(hp[key], pdf, hw[key])
-            #print 'sample result:', hp
-            #print
+                return scorefn(x) + m.score_data(fi)
+            hp[key] = slice_sample(pdf, hp[key], w)
             m.set_feature_hp(fi, hp)
 
 def slice_theta(m, thetaparams):
@@ -100,5 +88,5 @@ def slice_theta(m, thetaparams):
                     theta[key] = x
                     g.load(theta)
                     return g.score_data(shared)
-                theta[key] = slice_sample(theta[key], pdf, thetaw[key])
+                theta[key] = slice_sample(pdf, theta[key], thetaw[key])
                 g.load(theta)
