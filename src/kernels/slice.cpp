@@ -1,4 +1,5 @@
 #include <microscopes/kernels/slice.hpp>
+#include <microscopes/common/assert.hpp>
 #include <microscopes/common/util.hpp>
 
 using namespace std;
@@ -33,7 +34,7 @@ slice::hp(state &s, const vector<pair<size_t, slice_t>> &params, rng_t &rng)
     for (auto &kv : sl) {
       // XXX: need some sort of runtime type checking here
       float *px = reinterpret_cast<float *>(s.get_feature_hp_raw_ptr(fid, kv.first)); // cringe
-      assert(px);
+      MICROSCOPES_ASSERT(px);
       func.prior_scorefn_ = kv.second.first;
       func.hp_ = px;
       *px = sample(func, *px, kv.second.second, rng);

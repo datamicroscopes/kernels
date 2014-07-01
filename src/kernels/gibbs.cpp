@@ -1,4 +1,5 @@
 #include <microscopes/kernels/gibbs.hpp>
+#include <microscopes/common/assert.hpp>
 #include <microscopes/common/util.hpp>
 
 using namespace std;
@@ -45,10 +46,14 @@ gibbs::assign(state &s, dataview &view, rng_t &rng)
     }
   }
 
+#ifdef DEBUG_MODE
+  s.dcheck_consistency();
+#endif
   for (view.reset(); !view.end(); view.next()) {
     const size_t gid = s.remove_value(view, rng);
     if (!s.groupsize(gid))
       s.delete_group(gid);
+    MICROSCOPES_ASSERT(s.empty_groups().size() == 1);
     row_accessor acc = view.get();
     auto scores = s.score_value(acc, rng);
     const auto choice = scores.first[util::sample_discrete_log(scores.second, rng)];
@@ -56,5 +61,8 @@ gibbs::assign(state &s, dataview &view, rng_t &rng)
     if (choice == egid) {
       egid = s.create_group(rng);
     }
+#ifdef DEBUG_MODE
+    s.dcheck_consistency();
+#endif
   }
 }
