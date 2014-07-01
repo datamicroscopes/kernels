@@ -131,6 +131,7 @@ def _test_hp_inference(
 
     def draw_grid_plot():
         plt.imshow(z_sample, cmap=plt.cm.binary, origin='lower',
+            interpolation='nearest',
             extent=(grid_min, grid_max, grid_min, grid_max))
         plt.hold(True) # XXX: restore plt state
         plt.contour(np.linspace(grid_min, grid_max, grid_n),
