@@ -1,7 +1,7 @@
 from microscopes.cxx.common.dataview import numpy_dataview
 from microscopes.cxx.common.rng import rng
 from microscopes.cxx.common.scalar_functions import log_exponential
-from microscopes.cxx.models import bb
+from microscopes.cxx.models import bb, dd
 from microscopes.cxx.mixture.model import state
 from microscopes.cxx.kernels.gibbs import assign
 from microscopes.cxx.kernels.slice import hp
@@ -9,6 +9,8 @@ from microscopes.cxx.kernels.bootstrap import likelihood
 from microscopes.py.kernels.slice import scalar_param, vector_param
 
 from sklearn.datasets import fetch_mldata
+from sklearn.cross_validation import train_test_split
+from sklearn.metrics import accuracy_score, roc_curve
 mnist_dataset = fetch_mldata('MNIST original')
 
 import numpy as np
@@ -38,6 +40,81 @@ def groupsbysize(s):
     counts = [(gid, s.groupsize(gid)) for gid in s.groups()]
     counts = sorted(counts, key=lambda x: x[1], reverse=True)
     return counts
+
+@attr('wip')
+def test_mnist_supervised():
+    classes = [2, 3]
+    classmap = { c : i for i, c in enumerate(classes) }
+    train_data, test_data = [], []
+    for c in classes:
+        Y = mnist_dataset['data'][np.where(mnist_dataset['target'] == float(c))[0]]
+        Y_train, Y_test = train_test_split(Y, test_size=0.01)
+        train_data.append(Y_train)
+        test_data.append(Y_test)
+
+    sample_size_max = 10000
+    def mk_class_data(c, Y):
+        n, D = Y.shape
+        print 'number of digit', c, 'in training is', n
+        dtype = [('', bool)]*D + [('',int)]
+        Y = np.array([tuple(list(y) + [classmap[c]]) for y in Y[np.random.permutation(Y.shape[0])][:sample_size_max]], dtype=dtype)
+        return Y
+    Y_train = np.hstack([mk_class_data(c, Y_train) for c, Y_train in zip(classes, train_data)])
+    Y_train = Y_train[np.random.permutation(np.arange(Y_train.shape[0]))]
+
+    n, = Y_train.shape
+    print 'training data is', n, 'examples'
+
+    D = len(Y_train.dtype)
+
+    view = numpy_dataview(Y_train)
+    s = make_dp(n, [bb]*(D-1) + [dd], {'alpha':0.2}, [{'alpha':1.,'beta':1.}]*(D-1) + [{'alphas':[1. for _ in classes]}])
+
+    r = rng()
+    likelihood(s, view.view(False, r), r)
+
+    indiv_prior_fn = log_exponential(1.2)
+    hparams = {
+        i : {
+            'alpha' : scalar_param(indiv_prior_fn, 1.5),
+            'beta'  : scalar_param(indiv_prior_fn, 1.5),
+        } for i in xrange(D-1) }
+    hparams[D-1] = {'alphas':[vector_param(idx, indiv_prior_fn, 1.5) for idx in xrange(len(classes))]}
+
+    def kernel(rid):
+        start = time.time()
+        assign(s, view.view(True, r), r)
+        hp(s, hparams, r)
+        sec = time.time() - start
+        print 'rid=', rid, 'nclusters=', s.ngroups(), 'iter=', sec, 'sec'
+
+    # training
+    iters = 50
+    for rid in xrange(iters):
+        kernel(rid)
+
+    results = []
+    for c, Y_test in zip(classes, test_data):
+        for y in Y_test:
+            query = ma.masked_array(
+                np.array([tuple(y) + (0,)], dtype=[('',bool)]*(D-1)+[('',int)]),
+                mask=[(False,)*(D-1) + (True,)])[0]
+            samples = [s.sample_post_pred(query, r)[1][0][-1] for _ in xrange(20)]
+            samples = np.bincount(samples)
+            prediction = np.argmax(samples)
+            prob_0 = float(samples[0])/samples.sum()
+            results.append((classmap[c], prediction, prob_0))
+        print 'finished predictions for class', c
+
+    Y_actual = np.array([a for a, _, _ in results])
+    Y_pred = np.array([b for _, b, _ in results])
+    Y_prob = np.array([c for _, _, c in results])
+
+    print 'accuracy:', accuracy_score(Y_actual, Y_pred)
+
+    #fpr, tpr, thresholds = roc_curve(Y_actual, Y_prob, pos_label=0)
+    #plt.plot(fpr, tpr)
+    #plt.show()
 
 @attr('slow')
 def test_mnist():
