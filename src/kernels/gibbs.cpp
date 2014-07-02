@@ -66,3 +66,22 @@ gibbs::assign(state &s, dataview &view, rng_t &rng)
 #endif
   }
 }
+
+void
+gibbs::assign_resample(state &s, dataview &view, size_t m, rng_t &rng)
+{
+#ifdef DEBUG_MODE
+  s.dcheck_consistency();
+#endif
+  for (view.reset(); !view.end(); view.next()) {
+    s.remove_value(view, rng);
+    s.ensure_k_empty_groups(m, true, rng);
+    row_accessor acc = view.get();
+    auto scores = s.score_value(acc, rng);
+    const auto choice = scores.first[util::sample_discrete_log(scores.second, rng)];
+    s.add_value(choice, view, rng);
+#ifdef DEBUG_MODE
+    s.dcheck_consistency();
+#endif
+  }
+}

@@ -11,3 +11,4 @@ cdef extern from "microscopes/kernels/gibbs.hpp" namespace "microscopes::kernels
     ctypedef vector[pair[model_raw_ptr, float]] grid_t
     void hp(state &, vector[pair[size_t, grid_t]] &, rng_t &) except +
     void assign(state &, dataview &, rng_t &) except +
+    void assign_resample(state &, dataview &, size_t, rng_t &) except +

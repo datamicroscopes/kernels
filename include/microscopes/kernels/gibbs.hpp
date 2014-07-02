@@ -20,6 +20,10 @@ struct gibbs {
 
   static void
   assign(mixture::state &state, common::dataview &view, common::rng_t &rng);
+
+  static void
+  assign_resample(mixture::state &state, common::dataview &view,
+      size_t m, common::rng_t &rng);
 };
 
 } // namespace kernels

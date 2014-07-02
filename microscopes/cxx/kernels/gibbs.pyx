@@ -2,7 +2,7 @@ from libcpp.vector cimport vector
 from libcpp.utility cimport pair
 from libc.stddef cimport size_t
 
-from microscopes.cxx.kernels._gibbs_h cimport hp as c_hp, assign as c_assign, grid_t, model_raw_ptr
+from microscopes.cxx.kernels._gibbs_h cimport hp as c_hp, assign as c_assign, assign_resample as c_assign_resample, grid_t, model_raw_ptr
 
 from microscopes.cxx.common._dataview cimport abstract_dataview
 from microscopes.cxx.common._rng cimport rng
@@ -30,3 +30,6 @@ def hp(state s, dict params, rng r):
 
 def assign(state s, abstract_dataview view, rng r):
     c_assign(s._thisptr[0], view._thisptr[0], r._thisptr[0])
+
+def assign_resample(state s, abstract_dataview view, int m, rng r):
+    c_assign_resample(s._thisptr[0], view._thisptr[0], m, r._thisptr[0])
