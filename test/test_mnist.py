@@ -17,6 +17,7 @@ import math
 import time
 
 from nose.plugins.attrib import attr
+from PIL import Image, ImageOps
 
 def make_dp(n, models, clusterhp, featurehps):
     s = state(n, models)
@@ -35,7 +36,7 @@ def groupsbysize(s):
     """groupids by decreasing size"""
     counts = [(gid, s.groupsize(gid)) for gid in s.groups()]
     counts = sorted(counts, key=lambda x: x[1], reverse=True)
-    return [i for i, _ in counts]
+    return counts
 
 @attr('slow')
 def test_mnist():
@@ -63,7 +64,7 @@ def test_mnist():
             'beta'  : (indiv_prior_fn, 1.5),
         } for i in xrange(D) }
 
-    def plot(s, fname):
+    def plot_clusters(s, fname, scalebysize=False):
         hps = [s.get_feature_hp(i) for i in xrange(D)]
         def prior_prob(hp):
             return hp['alpha'] / (hp['alpha'] + hp['beta'])
@@ -75,7 +76,31 @@ def test_mnist():
                 return top/bot
             probs = [prob(hp, ss) for hp, ss in zip(hps, suffstats)]
             return np.array(probs)
-        data = [data_for_group(g) for g in groupsbysize(s)]
+        def scale(d, weight):
+            im = d.reshape((W,W))
+            newW = max(int(weight*W), 1)
+            im = Image.fromarray(im)
+            im = im.resize((newW, newW))
+            im = ImageOps.expand(im, border=(W-newW)/2)
+            im = np.array(im)
+            a, b = im.shape
+            #print 'a,b:', a, b
+            if a < W:
+                im = np.append(im, np.zeros(b)[np.newaxis,:], axis=0)
+            elif a > W:
+                im = im[:W,:]
+            assert im.shape[0] == W
+            if b < W:
+                #print 'current:', im.shape
+                im = np.append(im, np.zeros(W)[:,np.newaxis], axis=1)
+            elif b > W:
+                im = im[:,:W]
+            assert im.shape[1] == W
+            return im.flatten()
+
+        data = [(data_for_group(g), cnt) for g, cnt in groupsbysize(s)]
+        largest = max(cnt for _, cnt in data)
+        data = [scale(d, cnt/float(largest)) if scalebysize else d for d, cnt in data]
         digits_per_row = 12
         rem = len(data) % digits_per_row
         if rem:
@@ -88,7 +113,16 @@ def test_mnist():
         #print 'saving figure', fname
         plt.imshow(data, cmap=plt.cm.binary, interpolation='nearest')
         plt.savefig(fname)
-        plt.axes().set_aspect('equal')
+        plt.close()
+
+    def plot_hyperparams(s, fname):
+        hps = [s.get_feature_hp(i) for i in xrange(D)]
+        alphas = np.array([hp['alpha'] for hp in hps])
+        betas = np.array([hp['beta'] for hp in hps])
+        data = np.hstack([ alphas.reshape((W,W)), betas.reshape((W,W)) ])
+        plt.imshow(data, interpolation='nearest')
+        plt.colorbar()
+        plt.savefig(fname)
         plt.close()
 
     def kernel(rid):
@@ -99,17 +133,22 @@ def test_mnist():
         print 'rid=', rid, 'nclusters=', s.ngroups(), 'iter=', sec, 'sec'
 
     # burnin
-    burnin = 30
+    burnin = 50
     for rid in xrange(burnin):
         kernel(rid)
     print 'finished burnin'
-    plot(s, 'mnist_clusters.pdf')
+    plot_clusters(s, 'mnist_clusters.pdf')
+    plot_clusters(s, 'mnist_clusters_bysize.pdf', scalebysize=True)
+    plot_hyperparams(s, 'mnist_hyperparams.pdf')
+    print 'groupcounts:', groupcounts(s)
 
-    # posterior inference
+    # posterior predictions
     present = D/2
     absent = D-present
-    queries = [tuple(Y[i]) for i in np.random.permutation(Y.shape[0])[:8]]
-    queries = ma.masked_array(
+    queries = [tuple(Y_2[i]) for i in np.random.permutation(Y_2.shape[0])[:4]] + \
+              [tuple(Y_3[i]) for i in np.random.permutation(Y_3.shape[0])[:4]]
+
+    queries_masked = ma.masked_array(
         np.array(queries, dtype=[('',bool)]*D),
         mask=[(False,)*present + (True,)*absent])
 
@@ -119,8 +158,10 @@ def test_mnist():
         Y_avg = Y_samples.mean(axis=0)
         return Y_avg
 
-    queries = [postpred_sample(y) for y in queries]
-    data = np.hstack([q.reshape((W,W)) for q in queries])
+    queries_masked = [postpred_sample(y) for y in queries_masked]
+    data0 = np.hstack([q.reshape((W,W)) for q in queries_masked])
+    data1 = np.hstack([np.clip(np.array(q, dtype=np.float), 0., 1.).reshape((W,W)) for q in queries])
+    data = np.vstack([data0, data1])
     plt.imshow(data, cmap=plt.cm.binary, interpolation='nearest')
     plt.savefig('mnist_predict.pdf')
     plt.close()
