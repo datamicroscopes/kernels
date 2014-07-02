@@ -6,6 +6,7 @@ from microscopes.cxx.mixture.model import state
 from microscopes.cxx.kernels.gibbs import assign
 from microscopes.cxx.kernels.slice import hp
 from microscopes.cxx.kernels.bootstrap import likelihood
+from microscopes.py.kernels.slice import scalar_param, vector_param
 
 from sklearn.datasets import fetch_mldata
 mnist_dataset = fetch_mldata('MNIST original')
@@ -60,8 +61,8 @@ def test_mnist():
     indiv_prior_fn = log_exponential(1.2)
     hparams = {
         i : {
-            'alpha' : (indiv_prior_fn, 1.5),
-            'beta'  : (indiv_prior_fn, 1.5),
+            'alpha' : scalar_param(indiv_prior_fn, 1.5),
+            'beta'  : scalar_param(indiv_prior_fn, 1.5),
         } for i in xrange(D) }
 
     def plot_clusters(s, fname, scalebysize=False):
