@@ -57,19 +57,45 @@ def slice_sample(pdf, x0, w, r=None):
     L, R = interval(pdf, x0, y, w, 1000)
     return shrink(pdf, x0, y, L, R)
 
+class scalar_param(object):
+    def __init__(self, prior, w):
+        self._prior = prior
+        self._w = w
+    def set(self, hp, key, value):
+        hp[key] = value
+    def get(self, hp, key):
+        return hp[key]
+    def index(self):
+        return None
+
+class vector_param(object):
+    def __init__(self, idx, prior, w):
+        self._idx = idx
+        self._prior = prior
+        self._w = w
+    def set(self, hp, key, value):
+        hp[key][self._idx] = value
+    def get(self, hp, key):
+        return hp[key][self._idx]
+    def index(self):
+        return self._idx
+
 def slice_hp(m, hparams, r=None):
     # XXX: this can be done in parallel
     for fi, hparam in hparams.iteritems():
         hp = m.get_feature_hp(fi)
         items = list(hparam.iteritems())
         for i in np.random.permutation(np.arange(len(items))):
-            key, (scorefn, w) = items[i]
-            def pdf(x):
-                hp[key] = x
+            key, objs = items[i]
+            if not hasattr(objs, '__iter__'):
+                objs = [objs]
+            for param in objs:
+                def pdf(x):
+                    param.set(hp, key, x)
+                    m.set_feature_hp(fi, hp)
+                    return scorefn(x) + m.score_data(fi)
+                param.set(hp, key, slice_sample(pdf, param.get(hp, key), w))
                 m.set_feature_hp(fi, hp)
-                return scorefn(x) + m.score_data(fi)
-            hp[key] = slice_sample(pdf, hp[key], w)
-            m.set_feature_hp(fi, hp)
 
 def slice_theta(m, thetaparams):
     """

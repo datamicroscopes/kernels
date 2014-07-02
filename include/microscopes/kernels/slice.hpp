@@ -2,6 +2,7 @@
 
 #include <microscopes/common/dataview.hpp>
 #include <microscopes/common/random_fwd.hpp>
+#include <microscopes/common/typedefs.hpp>
 #include <microscopes/mixture/model.hpp>
 
 #include <distributions/random.hpp>
@@ -86,10 +87,16 @@ struct slice {
     return shrink(scorefn, x0, y, p.first, p.second, rng, ntries);
   }
 
-  typedef std::map<
-      std::string,
-      std::pair<std::function<float(float)>, float>
-    > slice_t;
+  struct slice_indiv_t {
+    slice_indiv_t() : index_(), prior_(), w_() {}
+    slice_indiv_t(size_t index, common::scalar_1d_float_fn prior, float w)
+      : index_(index), prior_(prior), w_(w) {}
+    size_t index_;
+    common::scalar_1d_float_fn prior_;
+    float w_;
+  };
+
+  typedef std::map<std::string, std::vector<slice_indiv_t>> slice_t;
 
   static void
   hp(mixture::state &state,

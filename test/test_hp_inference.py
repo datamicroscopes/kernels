@@ -1,6 +1,6 @@
 from microscopes.py.mixture.dp import state as py_state, fill
 from microscopes.py.kernels.gibbs import gibbs_hp as py_gibbs_hp
-from microscopes.py.kernels.slice import slice_hp as py_slice_hp
+from microscopes.py.kernels.slice import slice_hp as py_slice_hp, scalar_param
 from distributions.dbg.models import bb as py_bb
 
 from microscopes.cxx.mixture.model import state as cxx_state
@@ -201,8 +201,8 @@ def _test_kernel_slice_hp(ctor, bbmodel, slice_hp_fn, fname, prng):
     def init_inf_kernel_state_fn(s):
         hparams = {
             0 : {
-                'alpha' : (indiv_prior_fn, 1.5),
-                'beta'  : (indiv_prior_fn, 1.5),
+                'alpha' : scalar_param(indiv_prior_fn, 1.5),
+                'beta'  : scalar_param(indiv_prior_fn, 1.5),
                 }
             }
         return hparams

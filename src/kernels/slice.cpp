@@ -1,4 +1,5 @@
 #include <microscopes/kernels/slice.hpp>
+#include <microscopes/common/macros.hpp>
 #include <microscopes/common/assert.hpp>
 #include <microscopes/common/util.hpp>
 
@@ -18,7 +19,7 @@ struct scorefn {
   state *s_;
   rng_t *rng_;
   size_t i_;
-  std::function<float(float)> prior_scorefn_;
+  scalar_1d_float_fn prior_scorefn_;
   float *hp_;
 };
 
@@ -33,11 +34,15 @@ slice::hp(state &s, const vector<pair<size_t, slice_t>> &params, rng_t &rng)
     // XXX: permute the order of keys
     for (auto &kv : sl) {
       // XXX: need some sort of runtime type checking here
-      float *px = reinterpret_cast<float *>(s.get_feature_hp_raw_ptr(fid, kv.first)); // cringe
+      float *const px = reinterpret_cast<float *>(s.get_feature_hp_raw_ptr(fid, kv.first)); // cringe
       MICROSCOPES_ASSERT(px);
-      func.prior_scorefn_ = kv.second.first;
-      func.hp_ = px;
-      *px = sample(func, *px, kv.second.second, rng);
+      for (auto &indiv : kv.second) {
+        // XXX: need some sort of bounds checking here
+        float *const this_px = px + indiv.index_;
+        func.prior_scorefn_ = indiv.prior_;
+        func.hp_ = this_px;
+        *this_px = sample(func, *this_px, indiv.w_, rng);
+      }
     }
   }
 }
