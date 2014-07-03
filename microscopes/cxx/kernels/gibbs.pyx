@@ -12,6 +12,7 @@ from microscopes.cxx._models_h cimport model_shared_ptr
 from microscopes.cxx.mixture._model cimport state
 
 def hp(state s, dict params, rng r):
+    assert r
     cdef vector[pair[size_t, grid_t]] g
     cdef grid_t g0
     cdef vector[model_shared_ptr] ptrs
@@ -29,7 +30,9 @@ def hp(state s, dict params, rng r):
     c_hp(s._thisptr[0], g, r._thisptr[0])
 
 def assign(state s, abstract_dataview view, rng r):
+    assert r
     c_assign(s._thisptr[0], view._thisptr[0], r._thisptr[0])
 
 def assign_resample(state s, abstract_dataview view, int m, rng r):
+    assert r
     c_assign_resample(s._thisptr[0], view._thisptr[0], m, r._thisptr[0])

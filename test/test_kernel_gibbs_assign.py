@@ -202,7 +202,7 @@ def _test_nonconj_inference(ctor, bbncmodel, dataview, assign_nonconj_fn, slice_
     D = 5
     dpmm = make_dp(ctor, N, [bbncmodel]*D, {'alpha':0.2}, [{'alpha':1.0, 'beta':1.0}]*D)
     while True:
-        Y_clustered, cluster_samplers = sample(N, dpmm)
+        Y_clustered, cluster_samplers = sample(N, dpmm, R)
         if len(Y_clustered) == 2 and max(map(len, Y_clustered)) >= 0.7:
             break
     dominant = np.argmax(map(len, Y_clustered))
@@ -213,7 +213,7 @@ def _test_nonconj_inference(ctor, bbncmodel, dataview, assign_nonconj_fn, slice_
     # by running gibbs_assign_nonconj, followed by slice sampling on the
     # posterior p(\theta | Y). we'll "cheat" a little by bootstrapping the
     # DP with the correct assignment (but not with the correct p-values)
-    fill(dpmm, Y_clustered)
+    fill(dpmm, Y_clustered, R)
     Y = np.hstack(Y_clustered)
     view = dataview(Y)
 
@@ -229,7 +229,7 @@ def _test_nonconj_inference(ctor, bbncmodel, dataview, assign_nonconj_fn, slice_
             kernel()
             groups = dpmm.groups()
             inferred_dominant = groups[np.argmax([dpmm.groupsize(gid) for gid in groups])]
-            inferred = np.array([ss['p'] for ss in dpmm.get_suff_stats(inferred_dominant, d) for d in xrange(D)])
+            inferred = np.array([dpmm.get_suff_stats(inferred_dominant, d)['p'] for d in xrange(D)])
             yield inferred
 
     posterior = list(inference(100))

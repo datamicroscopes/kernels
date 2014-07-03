@@ -65,7 +65,7 @@ def theta(state s, dict tparams, rng r):
     cdef vector[slice_theta_param_t] buf0
     for fi, params in tparams.iteritems():
         buf0.clear()
-        for k, w in tparams.iteritems():
+        for k, w in params.iteritems():
             buf0.push_back(slice_theta_param_t(k, w))
         c_tparams.push_back(slice_theta_t(fi, buf0))
     c_theta(s._thisptr[0], c_tparams, r._thisptr[0])
