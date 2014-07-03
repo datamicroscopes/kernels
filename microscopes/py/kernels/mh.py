@@ -9,22 +9,23 @@ def mh_hp(m, hparams):
             'hsamp': <TODO: fill me in>
         }
     """
-    # XXX: this can be done in parallel
-    for fi, hparam in hparams.iteritems():
-        hpdf, hcondpdf, hsamp = hparam['hpdf'], hparam['hcondpdf'], hparam['hsamp']
-        # this duplicates code from below, but avoids some overhead
-        # by mutating state directly
-        cur_hp = m.get_feature_hp_raw(fi)
-        prop_hp = hsamp(cur_hp)
-        lg_pcur = hpdf(cur_hp) + m.score_data(fi)
-        m.set_feature_hp_raw(fi, prop_hp)
-        lg_pstar = hpdf(prop_hp) + m.score_data(fi)
-        lg_qbackwards = hcondpdf(prop_hp, cur_hp)
-        lg_qforwards = hcondpdf(cur_hp, prop_hp)
-        alpha = lg_pstar + lg_qbackwards - lg_pcur - lg_qforwards
-        if alpha <= 0.0 and np.random.random() >= np.exp(alpha):
-            # reject
-            m.set_feature_hp_raw(fi, cur_hp)
+    raise Exception("broken")
+    ## XXX: this can be done in parallel
+    #for fi, hparam in hparams.iteritems():
+    #    hpdf, hcondpdf, hsamp = hparam['hpdf'], hparam['hcondpdf'], hparam['hsamp']
+    #    # this duplicates code from below, but avoids some overhead
+    #    # by mutating state directly
+    #    cur_hp = m.get_feature_hp_raw(fi)
+    #    prop_hp = hsamp(cur_hp)
+    #    lg_pcur = hpdf(cur_hp) + m.score_data(fi)
+    #    m.set_feature_hp_raw(fi, prop_hp)
+    #    lg_pstar = hpdf(prop_hp) + m.score_data(fi)
+    #    lg_qbackwards = hcondpdf(prop_hp, cur_hp)
+    #    lg_qforwards = hcondpdf(cur_hp, prop_hp)
+    #    alpha = lg_pstar + lg_qbackwards - lg_pcur - lg_qforwards
+    #    if alpha <= 0.0 and np.random.random() >= np.exp(alpha):
+    #        # reject
+    #        m.set_feature_hp_raw(fi, cur_hp)
 
 def mh_sample(xt, pdf, condpdf, condsamp):
     # sample xprop ~ Q(.|xt)

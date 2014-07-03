@@ -93,7 +93,7 @@ def slice_hp(m, hparams, r=None):
                 def pdf(x):
                     param.set(hp, key, x)
                     m.set_feature_hp(fi, hp)
-                    return scorefn(x) + m.score_data(fi)
+                    return scorefn(x) + m.score_data(fi, None)
                 param.set(hp, key, slice_sample(pdf, param.get(hp, key), w))
                 m.set_feature_hp(fi, hp)
 
@@ -101,18 +101,19 @@ def slice_theta(m, thetaparams):
     """
     XXX: doc
     """
-    # XXX: this can be done in parallel
-    for fi, thetaparam in thetaparams.iteritems():
-        thetaw = thetaparam['thetaw']
-        items = list(thetaw.iteritems())
-        shared = m.get_feature_hp_shared(fi)
-        for _, g in m.get_suff_stats_for_feature(fi):
-            for i in np.random.permutation(np.arange(len(items))):
-                key, w = items[i]
-                theta = g.dump()
-                def pdf(x):
-                    theta[key] = x
-                    g.load(theta)
-                    return g.score_data(shared)
-                theta[key] = slice_sample(pdf, theta[key], thetaw[key])
-                g.load(theta)
+    raise Exception("broken")
+    ## XXX: this can be done in parallel
+    #for fi, thetaparam in thetaparams.iteritems():
+    #    thetaw = thetaparam['thetaw']
+    #    items = list(thetaw.iteritems())
+    #    shared = m.get_feature_hp_shared(fi)
+    #    for _, g in m.get_suff_stats_for_feature(fi):
+    #        for i in np.random.permutation(np.arange(len(items))):
+    #            key, w = items[i]
+    #            theta = g.dump()
+    #            def pdf(x):
+    #                theta[key] = x
+    #                g.load(theta)
+    #                return g.score_data(shared)
+    #            theta[key] = slice_sample(pdf, theta[key], thetaw[key])
+    #            g.load(theta)

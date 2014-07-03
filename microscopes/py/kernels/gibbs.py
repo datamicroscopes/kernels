@@ -15,7 +15,7 @@ def gibbs_hp(m, hparams, rng=None):
         scores = np.zeros(len(hgrid))
         for i, hp in enumerate(hgrid):
             m.set_feature_hp(fi, hp)
-            scores[i] = hpdf(hp) + m.score_data(fi)
+            scores[i] = hpdf(hp) + m.score_data(fi, None)
         choice = sample_discrete_log(scores)
         m.set_feature_hp(fi, hgrid[choice])
 

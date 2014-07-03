@@ -14,7 +14,7 @@ struct scorefn {
   operator()(float m)
   {
     *hp_ = m;
-    return prior_scorefn_(m) + s_->score_data({i_}, *rng_);
+    return prior_scorefn_(m) + s_->score_data({i_}, {}, *rng_);
   }
   state *s_;
   rng_t *rng_;

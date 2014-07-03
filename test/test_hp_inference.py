@@ -61,7 +61,7 @@ def _grid_actual(s, prior_fn, lo, hi, nelems, r):
             beta = yv[i, j]
             raw = {'alpha':alpha, 'beta':beta}
             s.set_feature_hp(0, raw)
-            z[i, j] = prior_fn(raw) + s.score_data(0, r)
+            z[i, j] = prior_fn(raw) + s.score_data(0, None, r)
     return xv, yv, z
 
 def _add_to_grid(xv, yv, z, value):

@@ -20,7 +20,7 @@ gibbs::hp(state &s, const vector<pair<size_t, grid_t>> &params, rng_t &rng)
     scores.clear();
     for (auto &g0 : g) {
       s.set_feature_hp(fid, *g0.first);
-      scores.push_back(g0.second + s.score_data(features, rng));
+      scores.push_back(g0.second + s.score_data(features, {}, rng));
     }
     const auto choice = util::sample_discrete_log(scores, rng);
     s.set_feature_hp(fid, *g[choice].first);
