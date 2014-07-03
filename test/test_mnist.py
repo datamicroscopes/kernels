@@ -10,7 +10,7 @@ from microscopes.py.kernels.slice import scalar_param, vector_param
 
 from sklearn.datasets import fetch_mldata
 from sklearn.cross_validation import train_test_split
-from sklearn.metrics import accuracy_score, roc_curve
+from sklearn.metrics import accuracy_score, roc_curve, roc_auc_score
 mnist_dataset = fetch_mldata('MNIST original')
 
 import numpy as np
@@ -43,7 +43,8 @@ def groupsbysize(s):
 
 @attr('wip')
 def test_mnist_supervised():
-    classes = [2, 3]
+    #classes = [2, 3, 4]
+    classes = range(10)
     classmap = { c : i for i, c in enumerate(classes) }
     train_data, test_data = [], []
     for c in classes:
@@ -82,14 +83,21 @@ def test_mnist_supervised():
     hparams[D-1] = {'alphas':[vector_param(idx, indiv_prior_fn, 1.5) for idx in xrange(len(classes))]}
 
     def kernel(rid):
-        start = time.time()
+        start0 = time.time()
         assign(s, view.view(True, r), r)
+        sec0 = time.time() - start0
+
+        start1 = time.time()
         hp(s, hparams, r)
-        sec = time.time() - start
-        print 'rid=', rid, 'nclusters=', s.ngroups(), 'iter=', sec, 'sec'
+        sec1 = time.time() - start1
+
+        print 'rid=', rid, 'nclusters=', s.ngroups(), 'iter0=', sec0, 'sec', 'iter1=', sec1, 'sec'
+
+        sec_per_post_pred = sec0 / (float(view.size()) / (float(s.ngroups())))
+        print '  time_per_post_pred=', sec_per_post_pred, 'sec'
 
     # training
-    iters = 50
+    iters = 30
     for rid in xrange(iters):
         kernel(rid)
 
@@ -99,19 +107,30 @@ def test_mnist_supervised():
             query = ma.masked_array(
                 np.array([tuple(y) + (0,)], dtype=[('',bool)]*(D-1)+[('',int)]),
                 mask=[(False,)*(D-1) + (True,)])[0]
-            samples = [s.sample_post_pred(query, r)[1][0][-1] for _ in xrange(20)]
-            samples = np.bincount(samples)
+            samples = [s.sample_post_pred(query, r)[1][0][-1] for _ in xrange(30)]
+            samples = np.bincount(samples, minlength=len(classes))
             prediction = np.argmax(samples)
-            prob_0 = float(samples[0])/samples.sum()
-            results.append((classmap[c], prediction, prob_0))
+            results.append((classmap[c], prediction, samples))
         print 'finished predictions for class', c
 
-    Y_actual = np.array([a for a, _, _ in results])
-    Y_pred = np.array([b for _, b, _ in results])
-    Y_prob = np.array([c for _, _, c in results])
-
+    Y_actual = np.array([a for a, _, _ in results], dtype=np.int)
+    Y_pred = np.array([b for _, b, _ in results], dtype=np.int)
     print 'accuracy:', accuracy_score(Y_actual, Y_pred)
 
+    # AUROC for one vs all (each class)
+    for i, clabel in enumerate(classes):
+        Y_true = np.copy(Y_actual)
+
+        # treat class c as the "positive" example
+        positive_examples = Y_actual == i
+        negative_examples = Y_actual != i
+        Y_true[positive_examples] = 1
+        Y_true[negative_examples] = 0
+        Y_prob = np.array([float(c[i])/c.sum() for _, _, c in results])
+        cls_auc = roc_auc_score(Y_true, Y_prob)
+        print 'class', clabel, 'auc=', cls_auc
+
+    #Y_prob = np.array([c for _, _, c in results])
     #fpr, tpr, thresholds = roc_curve(Y_actual, Y_prob, pos_label=0)
     #plt.plot(fpr, tpr)
     #plt.show()
@@ -204,11 +223,18 @@ def test_mnist():
         plt.close()
 
     def kernel(rid):
-        start = time.time()
+        start0 = time.time()
         assign(s, view.view(True, r), r)
+        sec0 = time.time() - start0
+
+        start1 = time.time()
         hp(s, hparams, r)
-        sec = time.time() - start
-        print 'rid=', rid, 'nclusters=', s.ngroups(), 'iter=', sec, 'sec'
+        sec1 = time.time() - start1
+
+        print 'rid=', rid, 'nclusters=', s.ngroups(), 'iter0=', sec0, 'sec', 'iter1=', sec1, 'sec'
+
+        sec_per_post_pred = sec0 / (float(view.size()) / (float(s.ngroups())))
+        print '  time_per_post_pred=', sec_per_post_pred, 'sec'
 
     # burnin
     burnin = 50
