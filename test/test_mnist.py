@@ -93,7 +93,7 @@ def test_mnist_supervised():
 
         print 'rid=', rid, 'nclusters=', s.ngroups(), 'iter0=', sec0, 'sec', 'iter1=', sec1, 'sec'
 
-        sec_per_post_pred = sec0 / (float(view.size()) / (float(s.ngroups())))
+        sec_per_post_pred = sec0 / (float(view.size()) * (float(s.ngroups())))
         print '  time_per_post_pred=', sec_per_post_pred, 'sec'
 
     # training
@@ -233,7 +233,7 @@ def test_mnist():
 
         print 'rid=', rid, 'nclusters=', s.ngroups(), 'iter0=', sec0, 'sec', 'iter1=', sec1, 'sec'
 
-        sec_per_post_pred = sec0 / (float(view.size()) / (float(s.ngroups())))
+        sec_per_post_pred = sec0 / (float(view.size()) * (float(s.ngroups())))
         print '  time_per_post_pred=', sec_per_post_pred, 'sec'
 
     # burnin
