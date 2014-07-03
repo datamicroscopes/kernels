@@ -3,34 +3,69 @@ from libcpp.utility cimport pair
 from libcpp.map cimport map
 from libc.stddef cimport size_t
 
-from microscopes.cxx.kernels._slice_h cimport hp as c_hp, \
-        slice_t, slice_indiv_t, sample as c_sample
+from microscopes.cxx.kernels._slice_h cimport \
+        hp as c_hp, \
+        theta as c_theta, \
+        slice_hp_param_component_t, \
+        slice_hp_param_t, \
+        slice_hp_t, \
+        slice_theta_param_t, \
+        slice_theta_t, \
+        sample as c_sample
 
 from microscopes.cxx.mixture._model cimport state
 from microscopes.cxx.common._scalar_functions cimport scalar_function
 from microscopes.cxx.common._typedefs_h cimport scalar_1d_float_fn
 from microscopes.cxx.common._rng cimport rng
 
-def hp(state s, dict params, rng r):
-    cdef vector[pair[size_t, slice_t]] c_params
-    cdef slice_t c_slice
-    cdef vector[slice_indiv_t] c_slice_indivs
-    for fi, p in params.iteritems():
-        c_slice.clear()
-        for k, objs in p.iteritems():
-            c_slice_indivs.clear()
+def sample(scalar_function func, float x0, float w, rng r):
+    return c_sample(func._func, x0, w, r._thisptr[0])
+
+def hp(state s, dict cparams, dict hparams, rng r):
+    cdef vector[slice_hp_param_t] c_cparams 
+    cdef vector[slice_hp_t] c_hparams
+
+    cdef vector[slice_hp_param_component_t] buf0
+    cdef vector[slice_hp_param_t] buf1
+
+    for k, objs in cparams.iteritems():
+        buf0.clear()
+        if not hasattr(objs, '__iter__'):
+            objs = [objs]
+        for param in objs:
+            assert isinstance(param._prior, scalar_function)
+            buf0.push_back(
+                slice_hp_param_component_t(
+                    param.index(), 
+                    (<scalar_function>param._prior)._func,
+                    param._w))
+        c_cparams.push_back(slice_hp_param_t(k, buf0))
+
+    for fi, hparam in hparams.iteritems():
+        buf1.clear()
+        for k, objs in hparam.iteritems():
+            buf0.clear()
+            # XXX: code duplication with above
             if not hasattr(objs, '__iter__'):
                 objs = [objs]
             for param in objs:
-                assert isinstance(param._prior, scalar_function), 'functions must be scalar_function'
-                idx = param.index()
-                if idx is None:
-                    idx = 0
-                c_slice_indivs.push_back(
-                    slice_indiv_t(idx, (<scalar_function>param._prior)._func, param._w))
-            c_slice[k] = c_slice_indivs
-        c_params.push_back(pair[size_t, slice_t](fi, c_slice))
-    c_hp(s._thisptr[0], c_params, r._thisptr[0])
+                assert isinstance(param._prior, scalar_function)
+                buf0.push_back(
+                    slice_hp_param_component_t(
+                        param.index(), 
+                        (<scalar_function>param._prior)._func,
+                        param._w))
+            buf1.push_back(slice_hp_param_t(k, buf0))
+        c_hparams.push_back(slice_hp_t(fi, buf1))
 
-def sample(scalar_function func, float x0, float w, rng r):
-    return c_sample(func._func, x0, w, r._thisptr[0])
+    c_hp(s._thisptr[0], c_cparams, c_hparams, r._thisptr[0])
+
+def theta(state s, dict tparams, rng r):
+    cdef vector[slice_theta_t] c_tparams
+    cdef vector[slice_theta_param_t] buf0
+    for fi, params in tparams.iteritems():
+        buf0.clear()
+        for k, w in tparams.iteritems():
+            buf0.push_back(slice_theta_param_t(k, w))
+        c_tparams.push_back(slice_theta_t(fi, buf0))
+    c_theta(s._thisptr[0], c_tparams, r._thisptr[0])

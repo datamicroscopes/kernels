@@ -80,7 +80,7 @@ class vector_param(object):
     def index(self):
         return self._idx
 
-def slice_hp(m, hparams, r=None):
+def slice_hp(m, cparams, hparams, r=None):
     # XXX: this can be done in parallel
     for fi, hparam in hparams.iteritems():
         hp = m.get_feature_hp(fi)
@@ -93,27 +93,29 @@ def slice_hp(m, hparams, r=None):
                 def pdf(x):
                     param.set(hp, key, x)
                     m.set_feature_hp(fi, hp)
-                    return scorefn(x) + m.score_data(fi, None)
-                param.set(hp, key, slice_sample(pdf, param.get(hp, key), w))
-                m.set_feature_hp(fi, hp)
+                    return param._prior(x) + m.score_data(fi, None)
+                param.set(hp, key, slice_sample(pdf, param.get(hp, key), param._w))
+        m.set_feature_hp(fi, hp)
+    hp = m.get_cluster_hp()
+    for key, objs in cparams.iteritems():
+        if not hasattr(objs, '__iter__'):
+           objs = [objs]
+        for param in objs:
+            def pdf(x):
+                param.set(hp, key, x)
+                m.set_cluster_hp(hp)
+                return param._prior(x) + m.score_assignment()
+            param.set(hp, key, slice_sample(pdf, param.get(hp, key), param._w))
+    m.set_cluster_hp(hp)
 
-def slice_theta(m, thetaparams):
-    """
-    XXX: doc
-    """
-    raise Exception("broken")
-    ## XXX: this can be done in parallel
-    #for fi, thetaparam in thetaparams.iteritems():
-    #    thetaw = thetaparam['thetaw']
-    #    items = list(thetaw.iteritems())
-    #    shared = m.get_feature_hp_shared(fi)
-    #    for _, g in m.get_suff_stats_for_feature(fi):
-    #        for i in np.random.permutation(np.arange(len(items))):
-    #            key, w = items[i]
-    #            theta = g.dump()
-    #            def pdf(x):
-    #                theta[key] = x
-    #                g.load(theta)
-    #                return g.score_data(shared)
-    #            theta[key] = slice_sample(pdf, theta[key], thetaw[key])
-    #            g.load(theta)
+def slice_theta(m, tparams, r=None):
+    groups = np.array(m.groups(), dtype=np.int)
+    for fi, params in tparams.iteritems():
+        for k, w in tparams.iteritems():
+            for gi in groups[np.random.permutation(len(groups))]:
+                theta = m.get_suff_stats(gi, fi)
+                def pdf(x):
+                    theta[k] = x
+                    m.set_suff_stats(gi, fi, theta)
+                    return m.score_data(fi, gi, r)
+                theta[k] = slice_sample(pdf, theta[k], w)

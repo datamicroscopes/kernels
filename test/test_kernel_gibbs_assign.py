@@ -1,20 +1,23 @@
 from distributions.dbg.models import bb as py_bb, gp as py_gp, nich as py_nich
 
-from microscopes.py.mixture.dp import state as py_state, sample as py_sample, fill
+from microscopes.py.mixture.dp import state as py_state, sample, fill
 from microscopes.py.common.dataview import numpy_dataview as py_numpy_dataview
 from microscopes.py.kernels.gibbs import \
         gibbs_assign as py_gibbs_assign, \
         gibbs_assign_nonconj as py_gibbs_assign_nonconj
-from microscopes.py.kernels.slice import slice_theta
+from microscopes.py.kernels.slice import slice_theta as py_slice_theta
 from microscopes.py.kernels.bootstrap import likelihood as py_bootstrap_likelihood
+from microscopes.py.models import bbnc as py_bbnc
 
 from microscopes.cxx.mixture.model import state as cxx_state
-from microscopes.cxx.models import bb as cxx_bb, gp as cxx_gp, nich as cxx_nich
+from microscopes.cxx.models import bb as cxx_bb, gp as cxx_gp, nich as cxx_nich, bbnc as cxx_bbnc
 from microscopes.cxx.common.dataview import numpy_dataview as cxx_numpy_dataview
 from microscopes.cxx.common.rng import rng
 from microscopes.cxx.kernels.bootstrap import likelihood as cxx_likelihood
 from microscopes.cxx.kernels.gibbs import \
-        assign as cxx_gibbs_assign
+        assign as cxx_gibbs_assign, \
+        assign_resample as cxx_gibbs_assign_nonconj
+from microscopes.cxx.kernels.slice import theta as cxx_slice_theta
 from microscopes.cxx.kernels.bootstrap import likelihood as cxx_bootstrap_likelihood
 
 from microscopes.py.common.util import KL_discrete
@@ -99,7 +102,7 @@ def _test_convergence_simple(
     cxx_s = make_dp(cxx_state, N, cxx_models, clusterhp, featurehps)
 
     # sample from generative process
-    Y_clustered, _ = py_sample(N, py_s)
+    Y_clustered, _ = sample(N, py_s)
     Y = np.hstack(Y_clustered)
     assert Y.shape[0] == N
 
@@ -194,51 +197,54 @@ def test_convergence_bb_missing():
         featurehps=[{'alpha':1.0,'beta':1.0}]*D,
         preprocess_data_fn=preprocess_fn)
 
-#@attr('slow')
-#def test_nonconj_inference():
-#    N = 1000
-#    D = 5
-#    dpmm = make_dp(N, [bbnc]*D, {'alpha':0.2}, [{'alpha':1.0, 'beta':1.0}]*D)
-#    while True:
-#        Y_clustered, cluster_samplers = dpmm.sample(N)
-#        if len(Y_clustered) == 2 and max(map(len, Y_clustered)) >= 0.7:
-#            break
-#    dominant = np.argmax(map(len, Y_clustered))
-#    truth = np.array([s.p for s in cluster_samplers[dominant]])
-#    print 'truth:', truth
-#
-#    # see if we can learn the p-values for each of the two clusters. we proceed
-#    # by running gibbs_assign_nonconj, followed by slice sampling on the
-#    # posterior p(\theta | Y). we'll "cheat" a little by bootstrapping the
-#    # DP with the correct assignment (but not with the correct p-values)
-#    dpmm.fill(Y_clustered)
-#    Y = np.hstack(Y_clustered)
-#    dataset = numpy_dataview(Y)
-#
-#    def mkparam():
-#        return {'thetaw':{'p':0.1}}
-#    thetaparams = { fi : mkparam() for fi in xrange(D) }
-#    def kernel():
-#        gibbs_assign_nonconj(dpmm, dataset.data(shuffle=True), nonempty=2)
-#        slice_theta(dpmm, thetaparams)
-#
-#    def inference(niters):
-#        for _ in xrange(niters):
-#            kernel()
-#            groups = dpmm.groups()
-#            inferred_dominant = groups[np.argmax([dpmm.nentities_in_group(gid) for gid in groups])]
-#            inferred = np.array([
-#                [gdata.dump()['p'] for gid, gdata in dpmm.get_suff_stats_for_feature(d) if gid == inferred_dominant][0] \
-#                    for d in xrange(D)])
-#            yield inferred
-#
-#    posterior = list(inference(100))
-#    inferred = sum(posterior) / len(posterior)
-#    diff = np.linalg.norm(truth-inferred)
-#
-#    print 'inferred:', inferred
-#    print 'diff:', diff
-#    assert diff <= 0.2
+def _test_nonconj_inference(ctor, bbncmodel, dataview, assign_nonconj_fn, slice_theta_fn, R):
+    N = 1000
+    D = 5
+    dpmm = make_dp(ctor, N, [bbncmodel]*D, {'alpha':0.2}, [{'alpha':1.0, 'beta':1.0}]*D)
+    while True:
+        Y_clustered, cluster_samplers = sample(N, dpmm)
+        if len(Y_clustered) == 2 and max(map(len, Y_clustered)) >= 0.7:
+            break
+    dominant = np.argmax(map(len, Y_clustered))
+    truth = np.array([s.p for s in cluster_samplers[dominant]])
+    print 'truth:', truth
+
+    # see if we can learn the p-values for each of the two clusters. we proceed
+    # by running gibbs_assign_nonconj, followed by slice sampling on the
+    # posterior p(\theta | Y). we'll "cheat" a little by bootstrapping the
+    # DP with the correct assignment (but not with the correct p-values)
+    fill(dpmm, Y_clustered)
+    Y = np.hstack(Y_clustered)
+    view = dataview(Y)
+
+    def mkparam():
+        return {'p':0.1}
+    thetaparams = { fi : mkparam() for fi in xrange(D) }
+    def kernel():
+        assign_nonconj_fn(dpmm, view.view(True, R), 2, R)
+        slice_theta_fn(dpmm, thetaparams, R)
+
+    def inference(niters):
+        for _ in xrange(niters):
+            kernel()
+            groups = dpmm.groups()
+            inferred_dominant = groups[np.argmax([dpmm.groupsize(gid) for gid in groups])]
+            inferred = np.array([ss['p'] for ss in dpmm.get_suff_stats(inferred_dominant, d) for d in xrange(D)])
+            yield inferred
+
+    posterior = list(inference(100))
+    inferred = sum(posterior) / len(posterior)
+    diff = np.linalg.norm(truth-inferred)
+
+    print 'inferred:', inferred
+    print 'diff:', diff
+    assert diff <= 0.2
+
+@attr('wip')
+def test_nonconj_inference_cxx():
+    _test_nonconj_inference(
+            cxx_state, cxx_bbnc, cxx_numpy_dataview,
+            cxx_gibbs_assign_nonconj, cxx_slice_theta, rng())
 
 #@attr('slow')
 #def test_nonconj_inference_kl():

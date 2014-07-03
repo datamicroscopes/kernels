@@ -87,21 +87,74 @@ struct slice {
     return shrink(scorefn, x0, y, p.first, p.second, rng, ntries);
   }
 
-  struct slice_indiv_t {
-    slice_indiv_t() : index_(), prior_(), w_() {}
-    slice_indiv_t(size_t index, common::scalar_1d_float_fn prior, float w)
+  struct slice_hp_param_component_t {
+    slice_hp_param_component_t() : index_(), prior_(), w_() {}
+    slice_hp_param_component_t(
+        size_t index,
+        common::scalar_1d_float_fn prior,
+        float w)
       : index_(index), prior_(prior), w_(w) {}
+
     size_t index_;
     common::scalar_1d_float_fn prior_;
     float w_;
   };
 
-  typedef std::map<std::string, std::vector<slice_indiv_t>> slice_t;
+  struct slice_hp_param_t {
+    slice_hp_param_t() : key_(), components_() {}
+    slice_hp_param_t(
+        const std::string &key,
+        const std::vector<slice_hp_param_component_t> &components)
+      : key_(key), components_(components) {}
+
+    std::string key_;
+    std::vector<slice_hp_param_component_t> components_;
+  };
+
+  struct slice_hp_t {
+    slice_hp_t() : index_(), params_() {}
+    slice_hp_t(
+        size_t index,
+        const std::vector<slice_hp_param_t> &params)
+      : index_(index), params_(params) {}
+
+    size_t index_;
+    std::vector<slice_hp_param_t> params_;
+  };
 
   static void
   hp(mixture::state &state,
-     const std::vector<std::pair<size_t, slice_t>> &params,
+     const std::vector<slice_hp_param_t> &cparams,
+     const std::vector<slice_hp_t> &hparams,
      common::rng_t &rng);
+
+  struct slice_theta_param_t {
+    slice_theta_param_t() : key_(), prior_(), w_() {}
+    slice_theta_param_t(
+        const std::string &key,
+        float w)
+      : key_(key), w_(w) {}
+
+    std::string key_;
+    common::scalar_1d_float_fn prior_;
+    float w_;
+  };
+
+  struct slice_theta_t {
+    slice_theta_t() : index_(), params_() {}
+    slice_theta_t(
+        size_t index,
+        const std::vector<slice_theta_param_t> &params)
+      : index_(index), params_(params) {}
+
+    size_t index_;
+    std::vector<slice_theta_param_t> params_;
+  };
+
+  static void
+  theta(mixture::state &state,
+        const std::vector<slice_theta_t> &tparams,
+        common::rng_t &rng);
 };
 
 } // namespace kernels

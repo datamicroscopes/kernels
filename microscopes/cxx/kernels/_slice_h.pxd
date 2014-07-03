@@ -10,12 +10,28 @@ from microscopes.cxx.common._dataview_h cimport dataview
 from microscopes.cxx.common._random_fwd_h cimport rng_t
 
 cdef extern from "microscopes/kernels/slice.hpp" namespace "microscopes::kernels::slice":
-    cdef cppclass slice_indiv_t:
-        slice_indiv_t()
-        slice_indiv_t(size_t, scalar_1d_float_fn, float)
-        size_t index_
-        scalar_1d_float_fn prior_
-        float w_
-    ctypedef map[string, vector[slice_indiv_t]] slice_t
-    void hp(state &, vector[pair[size_t, slice_t]] &, rng_t &) except +
     float sample(scalar_1d_float_fn fn, float, float, rng_t &) except +
+
+    cdef cppclass slice_hp_param_component_t:
+        slice_hp_param_component_t()
+        slice_hp_param_component_t(size_t, scalar_1d_float_fn, float)
+
+    cdef cppclass slice_hp_param_t:
+        slice_hp_param_t()
+        slice_hp_param_t(string &, vector[slice_hp_param_component_t] &) except +
+
+    cdef cppclass slice_hp_t:
+        slice_hp_t()
+        slice_hp_t(size_t, vector[slice_hp_param_t] &) except +
+
+    cdef cppclass slice_theta_param_t:
+        slice_theta_param_t()
+        slice_theta_param_t(string &, float) except +
+
+    cdef cppclass slice_theta_t:
+        slice_theta_t()
+        slice_theta_t(size_t, vector[slice_theta_param_t] &) except +
+
+    void hp(state &, vector[slice_hp_param_t] &, vector[slice_hp_t] &, rng_t &) except +
+    void theta(state &, vector[slice_theta_t] &, rng_t &) except +
+

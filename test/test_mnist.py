@@ -64,9 +64,9 @@ def test_mnist_supervised():
     Y_train = Y_train[np.random.permutation(np.arange(Y_train.shape[0]))]
 
     n, = Y_train.shape
-    print 'training data is', n, 'examples'
-
     D = len(Y_train.dtype)
+    print 'training data is', n, 'examples'
+    print 'image dimension is', (D-1), 'pixels'
 
     view = numpy_dataview(Y_train)
     s = make_dp(n, [bb]*(D-1) + [dd], {'alpha':0.2}, [{'alpha':1.,'beta':1.}]*(D-1) + [{'alphas':[1. for _ in classes]}])
