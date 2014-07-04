@@ -65,9 +65,6 @@ gibbs::assign(state &s, dataview &view, rng_t &rng)
     s.dcheck_consistency();
 #endif
   }
-
-  cout << "gibbs::assign(): groups_created():" << s.groups_created()
-       << ", groups_removed():" << s.groups_removed() << endl;
 }
 
 void

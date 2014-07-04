@@ -82,9 +82,12 @@ def cluster(Y, assignments):
 def _test_convergence_simple(
     N,
     py_models,
+    py_brute_models,
     cxx_models,
     clusterhp,
     featurehps,
+    py_kernel,
+    cxx_kernel,
     preprocess_data_fn=None,
     burnin_niters=10000,
     nsamples=1000,
@@ -110,8 +113,12 @@ def _test_convergence_simple(
     if preprocess_data_fn:
         Y = preprocess_data_fn(Y)
 
+    print 'brute forcing posterior of actual model'
+
     # brute force the posterior of the actual model
-    py_brute_s = make_dp(py_state, N, py_models, clusterhp, featurehps)
+    if py_brute_models is None:
+        py_brute_models = py_models
+    py_brute_s = make_dp(py_state, N, py_brute_models, clusterhp, featurehps)
 
     idmap = { C : i for i, C in enumerate(permutation_iter(N)) }
     # brute force the posterior of the actual model
@@ -127,13 +134,11 @@ def _test_convergence_simple(
     # setup python version
     py_view = py_numpy_dataview(Y)
     py_bootstrap_likelihood(py_s, py_view.view(False))
-    py_kernel = py_gibbs_assign
 
     # setup C++ version
     cxx_rng = rng(54389)
     cxx_view = cxx_numpy_dataview(Y)
     cxx_bootstrap_likelihood(cxx_s, cxx_view.view(False, cxx_rng), cxx_rng)
-    cxx_kernel = cxx_gibbs_assign
 
     def test_model(s, dataset, kernel, prng):
         # burnin
@@ -170,8 +175,12 @@ def _test_convergence_simple(
 
         assert False, 'failed to converge!'
 
-    test_model(py_s, py_view, py_kernel, None)
+    print 'testing cxx version'
     test_model(cxx_s, cxx_view, cxx_kernel, cxx_rng)
+
+    print 'testing py version'
+    test_model(py_s, py_view, py_kernel, None)
+
 
 def test_convergence_bb():
     N = 4
@@ -179,9 +188,12 @@ def test_convergence_bb():
     _test_convergence_simple(
         N=N,
         py_models=[py_bb]*D,
+        py_brute_models=None,
         cxx_models=[cxx_bb]*D,
         clusterhp={'alpha':2.0},
-        featurehps=[{'alpha':1.0,'beta':1.0}]*D)
+        featurehps=[{'alpha':1.0,'beta':1.0}]*D,
+        py_kernel=py_gibbs_assign,
+        cxx_kernel=cxx_gibbs_assign)
 
 def test_convergence_bb_missing():
     N = 4
@@ -192,12 +204,15 @@ def test_convergence_bb_missing():
     _test_convergence_simple(
         N=N,
         py_models=[py_bb]*D,
+        py_brute_models=None,
         cxx_models=[cxx_bb]*D,
         clusterhp={'alpha':2.0},
         featurehps=[{'alpha':1.0,'beta':1.0}]*D,
+        py_kernel=py_gibbs_assign,
+        cxx_kernel=cxx_gibbs_assign,
         preprocess_data_fn=preprocess_fn)
 
-def _test_nonconj_inference(ctor, bbncmodel, dataview, assign_nonconj_fn, slice_theta_fn, R):
+def _test_nonconj_inference(ctor, bbncmodel, dataview, assign_nonconj_fn, slice_theta_fn, R, ntries, nsamples, tol):
     N = 1000
     D = 5
     dpmm = make_dp(ctor, N, [bbncmodel]*D, {'alpha':0.2}, [{'alpha':1.0, 'beta':1.0}]*D)
@@ -221,7 +236,7 @@ def _test_nonconj_inference(ctor, bbncmodel, dataview, assign_nonconj_fn, slice_
         return {'p':0.1}
     thetaparams = { fi : mkparam() for fi in xrange(D) }
     def kernel():
-        assign_nonconj_fn(dpmm, view.view(True, R), 2, R)
+        assign_nonconj_fn(dpmm, view.view(True, R), 10, R)
         slice_theta_fn(dpmm, thetaparams, R)
 
     def inference(niters):
@@ -232,55 +247,54 @@ def _test_nonconj_inference(ctor, bbncmodel, dataview, assign_nonconj_fn, slice_
             inferred = np.array([dpmm.get_suff_stats(inferred_dominant, d)['p'] for d in xrange(D)])
             yield inferred
 
-    posterior = list(inference(100))
-    inferred = sum(posterior) / len(posterior)
-    diff = np.linalg.norm(truth-inferred)
+    posterior = []
+    while ntries:
+        samples = list(inference(nsamples))
+        posterior.extend(samples)
+        inferred = sum(posterior) / len(posterior)
+        diff = np.linalg.norm(truth-inferred)
+        print 'inferred:', inferred
+        print 'diff:', diff
+        if diff <= tol:
+            return
+        ntries -= 1
+        print 'tries left:', ntries
 
-    print 'inferred:', inferred
-    print 'diff:', diff
-    assert diff <= 0.2
+    assert False, 'did not converge'
 
-@attr('wip')
+@attr('slow')
+def test_nonconj_inference_py():
+    _test_nonconj_inference(
+            py_state, py_bbnc, py_numpy_dataview,
+            py_gibbs_assign_nonconj, py_slice_theta, None, ntries=5, nsamples=100, tol=0.2)
+
+@attr('slow')
 def test_nonconj_inference_cxx():
     _test_nonconj_inference(
             cxx_state, cxx_bbnc, cxx_numpy_dataview,
-            cxx_gibbs_assign_nonconj, cxx_slice_theta, rng())
+            cxx_gibbs_assign_nonconj, cxx_slice_theta, rng(), ntries=5, nsamples=1000, tol=0.1)
 
-#@attr('slow')
-#def test_nonconj_inference_kl():
-#    N = 2
-#    D = 5
-#    dpmm, actual_dpmm = \
-#        make_dp(N, [bb]*D, {'alpha':2.0}, [{'alpha':1.0, 'beta':1.0}]*D), \
-#        make_dp(N, [bb]*D, {'alpha':2.0}, [{'alpha':1.0, 'beta':1.0}]*D)
-#    def mkparam():
-#        return {'thetaw':{'p':0.1}}
-#    thetaparams = { fi : mkparam() for fi in xrange(D) }
-#    def kernel_fn(mm, it):
-#        gibbs_assign_nonconj(mm, it, nonempty=10)
-#        slice_theta(mm, thetaparams)
-#    _test_mixture_model_convergence(
-#            dpmm, actual_dpmm, N, permutation_iter,
-#            permutation_canonical, kernel_fn)
-
-#def test_different_datatypes():
-#    N = 10
-#    likelihoods = [bb, gp, nich, bb]
-#    hyperparams = [
-#        {'alpha':1.0, 'beta':3.0},
-#        {'alpha':2.0, 'inv_beta':1.0},
-#        {'mu': 0., 'kappa': 1., 'sigmasq': 1., 'nu': 1.},
-#        {'alpha':2.0, 'beta':1.0}]
-#    dpmm = make_dp(N, likelihoods, {'alpha':2.0}, hyperparams)
-#    Y_clustered, _ = dpmm.sample(N)
-#    Y = np.hstack(Y_clustered)
-#    assert Y.shape[0] == N
-#    dataset = numpy_dataview(Y)
-#    dpmm.bootstrap(dataset.data(shuffle=False))
-#
-#    # make sure it deals with different types
-#    for _ in xrange(10):
-#        gibbs_assign(dpmm, dataset.data(shuffle=True))
-#
-#    for typ, y in zip(likelihoods, Y[0]):
-#        assert typ.Value == type(np.asscalar(y))
+@attr('slow')
+def test_nonconj_inference_kl():
+    N = 2
+    D = 5
+    def mkparam():
+        return {'p':0.1}
+    thetaparams = { fi : mkparam() for fi in xrange(D) }
+    def kernel(s, view, R, assign_fn, slice_fn):
+        assign_fn(s, view, 10, R)
+        slice_fn(s, thetaparams, R)
+    py_kernel = lambda s, view, R: kernel(s, view, R, py_gibbs_assign_nonconj, py_slice_theta)
+    cxx_kernel = lambda s, view, R: kernel(s, view, R, cxx_gibbs_assign_nonconj, cxx_slice_theta)
+    _test_convergence_simple(
+        N=N,
+        py_models=[py_bbnc]*D,
+        py_brute_models=[py_bb]*D,
+        cxx_models=[cxx_bbnc]*D,
+        clusterhp={'alpha':2.0},
+        featurehps=[{'alpha':1.0,'beta':1.0}]*D,
+        py_kernel=py_kernel,
+        cxx_kernel=cxx_kernel,
+        burnin_niters=100,
+        nsamples=500,
+        threshold=0.05)

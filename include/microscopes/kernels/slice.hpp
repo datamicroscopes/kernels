@@ -26,26 +26,28 @@ struct slice {
     float L = x0 - w*U;
     float R = L + w;
     const float V = distributions::sample_unif01(rng);
-    unsigned J = floor(m*V);
-    unsigned K = m-1-J;
+    const unsigned J = floor(m*V);
+    const unsigned K = m-1-J;
 
-    while (J > 0 && y < fn(L)) {
+    unsigned J0 = J;
+    unsigned K0 = K;
+
+    while (J0 > 0 && y < fn(L)) {
       L -= w;
-      J--;
+      J0--;
     }
 
-    while (K > 0 && y < fn(R)) {
+    while (K0 > 0 && y < fn(R)) {
       R += w;
-      K--;
+      K0--;
     }
 
-    if (!J || !K)
-      std::cout << "WARNING: slice::interval hit maximum # of expansions" << std::endl;
-
-    //std::cout << "slice::interval():" << std::endl
-    //          << "  x0=" << x0 << ", y=" << y << ", w=" << w << std::endl
-    //          << "  L=" << L << ", R=" << R << " fn(L)=" << fn(L) << ", fn(R)=" << fn(R)
-    //          << std::endl;
+    if ((!J0 && J) || (!K0 && K)) {
+      std::cout << "WARNING: slice::interval hit maximum # of expansions" << std::endl
+                << "  Left expansions: " << J0 << ", Right expansions: " << K0 << std::endl
+                << "  x0=" << x0 << ", y=" << y << ", w=" << w << std::endl
+                << "  L=" << L << ", R=" << R << " fn(L)=" << fn(L) << ", fn(R)=" << fn(R) << std::endl;
+    }
 
     return std::make_pair(L, R);
   }
@@ -80,7 +82,7 @@ struct slice {
 
   template <typename T>
   static inline float
-  sample(T scorefn, float x0, float w, common::rng_t &rng, unsigned m=1000, unsigned ntries=100)
+  sample(T scorefn, float x0, float w, common::rng_t &rng, unsigned m=10000, unsigned ntries=100)
   {
     const float y = logf(distributions::sample_unif01(rng)) + scorefn(x0);
     const auto p = interval(scorefn, x0, y, w, rng, m);

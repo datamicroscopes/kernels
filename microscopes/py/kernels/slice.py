@@ -33,11 +33,10 @@ def interval(pdf, x0, y, w, m):
         logging.warn('interval hit maximum expansions')
     return L, R
 
-def shrink(pdf, x0, y, L, R):
+def shrink(pdf, x0, y, L, R, ntries):
     """
     Fig. 5 of http://projecteuclid.org/download/pdf_1/euclid.aos/1056562461
     """
-    ntries = 100
     while ntries:
         U = np.random.random()
         x1 = L + U*(R-L)
@@ -54,8 +53,8 @@ def shrink(pdf, x0, y, L, R):
 
 def slice_sample(pdf, x0, w, r=None):
     y = np.log(np.random.random()) + pdf(x0)
-    L, R = interval(pdf, x0, y, w, 1000)
-    return shrink(pdf, x0, y, L, R)
+    L, R = interval(pdf, x0, y, w, m=10000)
+    return shrink(pdf, x0, y, L, R, ntries=100)
 
 class scalar_param(object):
     def __init__(self, prior, w):
@@ -111,7 +110,7 @@ def slice_hp(m, cparams, hparams, r=None):
 def slice_theta(m, tparams, r=None):
     groups = np.array(m.groups(), dtype=np.int)
     for fi, params in tparams.iteritems():
-        for k, w in tparams.iteritems():
+        for k, w in params.iteritems():
             for gi in groups[np.random.permutation(len(groups))]:
                 theta = m.get_suff_stats(gi, fi)
                 def pdf(x):
