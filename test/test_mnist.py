@@ -88,7 +88,7 @@ def test_mnist_supervised():
         sec0 = time.time() - start0
 
         start1 = time.time()
-        hp(s, hparams, r)
+        hp(s, {}, hparams, r)
         sec1 = time.time() - start1
 
         print 'rid=', rid, 'nclusters=', s.ngroups(), 'iter0=', sec0, 'sec', 'iter1=', sec1, 'sec'
@@ -228,7 +228,7 @@ def test_mnist():
         sec0 = time.time() - start0
 
         start1 = time.time()
-        hp(s, hparams, r)
+        hp(s, {}, hparams, r)
         sec1 = time.time() - start1
 
         print 'rid=', rid, 'nclusters=', s.ngroups(), 'iter0=', sec0, 'sec', 'iter1=', sec1, 'sec'
