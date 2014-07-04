@@ -36,7 +36,7 @@ def hp(state s, dict cparams, dict hparams, rng r):
             assert isinstance(param._prior, scalar_function)
             buf0.push_back(
                 slice_hp_param_component_t(
-                    param.index(), 
+                    0 if param.index() is None else param.index(), 
                     (<scalar_function>param._prior)._func,
                     param._w))
         c_cparams.push_back(slice_hp_param_t(k, buf0))
@@ -52,7 +52,7 @@ def hp(state s, dict cparams, dict hparams, rng r):
                 assert isinstance(param._prior, scalar_function)
                 buf0.push_back(
                     slice_hp_param_component_t(
-                        param.index(), 
+                        0 if param.index() is None else param.index(), 
                         (<scalar_function>param._prior)._func,
                         param._w))
             buf1.push_back(slice_hp_param_t(k, buf0))
