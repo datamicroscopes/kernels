@@ -2,15 +2,20 @@ from distributions.dbg.models import bb as py_bb, gp as py_gp, nich as py_nich
 
 from microscopes.py.mixture.dp import state as py_state, sample, fill
 from microscopes.py.common.dataview import numpy_dataview as py_numpy_dataview
+from microscopes.py.common.util import random_orthonormal_matrix
 from microscopes.py.kernels.gibbs import \
         gibbs_assign as py_gibbs_assign, \
         gibbs_assign_nonconj as py_gibbs_assign_nonconj
 from microscopes.py.kernels.slice import slice_theta as py_slice_theta
 from microscopes.py.kernels.bootstrap import likelihood as py_bootstrap_likelihood
-from microscopes.py.models import bbnc as py_bbnc
+from microscopes.py.models import bbnc as py_bbnc, niw as py_niw
 
 from microscopes.cxx.mixture.model import state as cxx_state
-from microscopes.cxx.models import bb as cxx_bb, gp as cxx_gp, nich as cxx_nich, bbnc as cxx_bbnc
+from microscopes.cxx.models import bb as cxx_bb, \
+        gp as cxx_gp, \
+        nich as cxx_nich, \
+        bbnc as cxx_bbnc, \
+        niw as cxx_niw
 from microscopes.cxx.common.dataview import numpy_dataview as cxx_numpy_dataview
 from microscopes.cxx.common.rng import rng
 from microscopes.cxx.kernels.bootstrap import likelihood as cxx_likelihood
@@ -211,6 +216,49 @@ def test_convergence_bb_missing():
         py_kernel=py_gibbs_assign,
         cxx_kernel=cxx_gibbs_assign,
         preprocess_data_fn=preprocess_fn)
+
+def _test_multivariate_models(ctor, bbmodel, niwmodel, dataview, bootstrap, gibbs_assign, R):
+    mu0 = np.ones(3)
+    lambda_ = 0.3
+    Q = random_orthonormal_matrix(3)
+    psi = np.dot(Q, np.dot(np.diag([1.0, 0.5, 0.2]), Q.T))
+    nu = 6
+
+    N = 10
+    s = ctor(N, [bbmodel, niwmodel])
+    s.set_cluster_hp({'alpha':2.})
+    s.set_feature_hp(0, {'alpha':2.,'beta':2.})
+    s.set_feature_hp(1, {'mu0':mu0, 'lambda':lambda_, 'psi':psi, 'nu': nu})
+
+    def genrow():
+        return tuple([np.random.choice([False,True]), [np.random.uniform(-3.0, 3.0) for _ in xrange(3)]])
+
+    X = np.array([genrow() for _ in xrange(N)], dtype=[('',bool),('',float,(3,))])
+    view = dataview(X)
+    bootstrap(s, view.view(False, R), R)
+
+    for _ in xrange(10):
+        gibbs_assign(s, view.view(True, R), R)
+
+def test_multivariate_models_py():
+    _test_multivariate_models(
+        py_state,
+        py_bb,
+        py_niw,
+        py_numpy_dataview,
+        py_bootstrap_likelihood,
+        py_gibbs_assign,
+        None)
+
+def test_multivariate_models_cxx():
+    _test_multivariate_models(
+        cxx_state,
+        cxx_bb,
+        cxx_niw,
+        cxx_numpy_dataview,
+        cxx_bootstrap_likelihood,
+        cxx_gibbs_assign,
+        rng())
 
 def _test_nonconj_inference(ctor, bbncmodel, dataview, assign_nonconj_fn, slice_theta_fn, R, ntries, nsamples, tol):
     N = 1000
