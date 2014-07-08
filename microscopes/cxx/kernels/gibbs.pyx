@@ -4,7 +4,7 @@ from libc.stddef cimport size_t
 
 from microscopes.cxx.kernels._gibbs_h cimport hp as c_hp, assign as c_assign, assign_resample as c_assign_resample, grid_t, model_raw_ptr
 
-from microscopes.cxx.common._dataview cimport abstract_dataview
+from microscopes.cxx.common.recarray._dataview cimport abstract_dataview
 from microscopes.cxx.common._rng cimport rng
 from microscopes.cxx.common._typedefs_h cimport hyperparam_bag_t
 from microscopes.cxx._models cimport factory

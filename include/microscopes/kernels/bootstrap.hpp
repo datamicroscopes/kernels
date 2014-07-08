@@ -1,6 +1,6 @@
 #pragma once
 
-#include <microscopes/common/dataview.hpp>
+#include <microscopes/common/recarray/dataview.hpp>
 #include <microscopes/common/random_fwd.hpp>
 #include <microscopes/mixture/model.hpp>
 
@@ -9,7 +9,7 @@ namespace kernels {
 
 struct bootstrap {
   static void
-  likelihood(mixture::state &state, common::dataview &view, common::rng_t &rng);
+  likelihood(mixture::state &state, common::recarray::dataview &view, common::rng_t &rng);
 };
 
 } // namespace kernels

@@ -5,6 +5,7 @@
 
 using namespace std;
 using namespace microscopes::common;
+using namespace microscopes::common::recarray;
 using namespace microscopes::mixture;
 using namespace microscopes::kernels;
 using namespace microscopes::models;

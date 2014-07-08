@@ -1,6 +1,6 @@
 #pragma once
 
-#include <microscopes/common/dataview.hpp>
+#include <microscopes/common/recarray/dataview.hpp>
 #include <microscopes/common/random_fwd.hpp>
 #include <microscopes/mixture/model.hpp>
 
@@ -19,10 +19,10 @@ struct gibbs {
      common::rng_t &rng);
 
   static void
-  assign(mixture::state &state, common::dataview &view, common::rng_t &rng);
+  assign(mixture::state &state, common::recarray::dataview &view, common::rng_t &rng);
 
   static void
-  assign_resample(mixture::state &state, common::dataview &view,
+  assign_resample(mixture::state &state, common::recarray::dataview &view,
       size_t m, common::rng_t &rng);
 };
 

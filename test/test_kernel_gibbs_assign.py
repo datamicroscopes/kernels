@@ -1,7 +1,7 @@
 from distributions.dbg.models import bb as py_bb, gp as py_gp, nich as py_nich
 
 from microscopes.py.mixture.dp import state as py_state, sample, fill
-from microscopes.py.common.dataview import numpy_dataview as py_numpy_dataview
+from microscopes.py.common.recarray.dataview import numpy_dataview as py_numpy_dataview
 from microscopes.py.common.util import random_orthonormal_matrix
 from microscopes.py.kernels.gibbs import \
         gibbs_assign as py_gibbs_assign, \
@@ -16,7 +16,7 @@ from microscopes.cxx.models import bb as cxx_bb, \
         nich as cxx_nich, \
         bbnc as cxx_bbnc, \
         niw as cxx_niw
-from microscopes.cxx.common.dataview import numpy_dataview as cxx_numpy_dataview
+from microscopes.cxx.common.recarray.dataview import numpy_dataview as cxx_numpy_dataview
 from microscopes.cxx.common.rng import rng
 from microscopes.cxx.kernels.bootstrap import likelihood as cxx_likelihood
 from microscopes.cxx.kernels.gibbs import \

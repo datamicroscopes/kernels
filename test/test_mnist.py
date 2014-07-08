@@ -1,4 +1,4 @@
-from microscopes.cxx.common.dataview import numpy_dataview
+from microscopes.cxx.common.recarray.dataview import numpy_dataview
 from microscopes.cxx.common.rng import rng
 from microscopes.cxx.common.scalar_functions import log_exponential
 from microscopes.cxx.models import bb, dd

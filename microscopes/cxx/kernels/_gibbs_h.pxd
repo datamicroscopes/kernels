@@ -3,7 +3,7 @@ from libcpp.utility cimport pair
 from libc.stddef cimport size_t
 
 from microscopes.cxx.mixture._model_h cimport state
-from microscopes.cxx.common._dataview_h cimport dataview
+from microscopes.cxx.common.recarray._dataview_h cimport dataview
 from microscopes.cxx.common._random_fwd_h cimport rng_t
 from microscopes.cxx._models_h cimport model_raw_ptr
 

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <microscopes/common/dataview.hpp>
 #include <microscopes/common/random_fwd.hpp>
 #include <microscopes/common/typedefs.hpp>
 #include <microscopes/mixture/model.hpp>
