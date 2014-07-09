@@ -2,7 +2,7 @@
 
 #include <microscopes/common/random_fwd.hpp>
 #include <microscopes/common/typedefs.hpp>
-#include <microscopes/mixture/model.hpp>
+#include <microscopes/common/entity_state.hpp>
 
 #include <distributions/random.hpp>
 
@@ -124,7 +124,7 @@ struct slice {
   };
 
   static void
-  hp(mixture::state &state,
+  hp(common::fixed_entity_based_state_object &state,
      const std::vector<slice_hp_param_t> &cparams,
      const std::vector<slice_hp_t> &hparams,
      common::rng_t &rng);
@@ -153,7 +153,7 @@ struct slice {
   };
 
   static void
-  theta(mixture::state &state,
+  theta(common::fixed_entity_based_state_object &state,
         const std::vector<slice_theta_t> &tparams,
         common::rng_t &rng);
 };

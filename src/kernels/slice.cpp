@@ -5,8 +5,6 @@
 
 using namespace std;
 using namespace microscopes::common;
-using namespace microscopes::common::recarray;
-using namespace microscopes::mixture;
 using namespace microscopes::kernels;
 using namespace microscopes::models;
 
@@ -14,30 +12,32 @@ struct feature_scorefn {
   inline float
   operator()(float m)
   {
-    *hp_ = m;
-    return prior_scorefn_(m) + s_->score_data({i_}, {}, *rng_);
+    mut_->set<float>(pos_, m);
+    return prior_scorefn_(m) + s_->score_likelihood(feature_, *rng_);
   }
-  state *s_;
+  value_mutator *mut_;
+  size_t pos_;
+  fixed_entity_based_state_object *s_;
   rng_t *rng_;
-  size_t i_;
+  size_t feature_;
   scalar_1d_float_fn prior_scorefn_;
-  float *hp_;
 };
 
 struct cluster_scorefn {
   inline float
   operator()(float m)
   {
-    *hp_ = m;
+    mut_->set<float>(pos_, m);
     return prior_scorefn_(m) + s_->score_assignment();
   }
-  state *s_;
+  value_mutator *mut_;
+  size_t pos_;
+  fixed_entity_based_state_object *s_;
   scalar_1d_float_fn prior_scorefn_;
-  float *hp_;
 };
 
 void
-slice::hp(state &s,
+slice::hp(fixed_entity_based_state_object &s,
           const vector<slice_hp_param_t> &cparams,
           const vector<slice_hp_t> &hparams,
           rng_t &rng)
@@ -49,20 +49,21 @@ slice::hp(state &s,
   feature_func.s_ = &s;
   feature_func.rng_ = &rng;
   for (const auto &p : hparams) {
-    feature_func.i_ = p.index_;
-    util::permute(indices, p.params_.size(), rng);
+    feature_func.feature_ = p.index_;
+    util::inplace_permute(indices, p.params_.size(), rng);
     for (auto pi : indices) {
       const auto &p1 = p.params_[pi];
-      // XXX: need some sort of runtime type checking here
-      float *const px = reinterpret_cast<float *>(
-          s.get_feature_hp_raw_ptr(p.index_, p1.key_)); // cringe
-      MICROSCOPES_ASSERT(px);
+      value_mutator mut = s.get_component_hp_mutator(p.index_, p1.key_);
+      feature_func.mut_ = &mut;
+      MICROSCOPES_DCHECK(
+          mut.type().t() == TYPE_F32 ||
+          mut.type().t() == TYPE_F64, "need floats");
       for (const auto &p2 : p1.components_) {
-        // XXX: need some sort of bounds checking here
-        float *const this_px = px + p2.index_;
+        MICROSCOPES_DCHECK(p2.index_ < mut.shape(), "index OOB");
+        feature_func.pos_ = p2.index_;
         feature_func.prior_scorefn_ = p2.prior_;
-        feature_func.hp_ = this_px;
-        *this_px = sample(feature_func, *this_px, p2.w_, rng);
+        const float start = mut.accessor().get<float>(p2.index_);
+        mut.set<float>(p2.index_, sample(feature_func, start, p2.w_, rng));
       }
     }
   }
@@ -71,14 +72,17 @@ slice::hp(state &s,
   cluster_scorefn cluster_func;
   cluster_func.s_ = &s;
   for (const auto &p : cparams) {
-    float *const px = reinterpret_cast<float *>(
-        s.get_cluster_hp_raw_ptr(p.key_));
-    MICROSCOPES_ASSERT(px);
+    value_mutator mut = s.get_cluster_hp_mutator(p.key_);
+    cluster_func.mut_ = &mut;
+    MICROSCOPES_DCHECK(
+        mut.type().t() == TYPE_F32 ||
+        mut.type().t() == TYPE_F64, "need floats");
     for (const auto &p1 : p.components_) {
-      float *const this_px = px + p1.index_;
+      MICROSCOPES_DCHECK(p1.index_ < mut.shape(), "index OOB");
+      cluster_func.pos_ = p1.index_;
       cluster_func.prior_scorefn_ = p1.prior_;
-      cluster_func.hp_ = this_px;
-      *this_px = sample(cluster_func, *this_px, p1.w_, rng);
+      const float start = mut.accessor().get<float>(p1.index_);
+      mut.set<float>(p1.index_, sample(cluster_func, start, p1.w_, rng));
     }
   }
 }
@@ -87,36 +91,40 @@ struct theta_scorefn {
   inline float
   operator()(float m)
   {
-    *hp_ = m;
-    return s_->score_data({fi_}, {gi_}, *rng_);
-  } state *s_;
+    mut_->set<float>(pos_, m);
+    return s_->score_likelihood(component_, id_, *rng_);
+  }
+  value_mutator *mut_;
+  size_t pos_;
+  fixed_entity_based_state_object *s_;
   rng_t *rng_;
-  size_t fi_;
-  size_t gi_;
-  float *hp_;
+  size_t component_;
+  ident_t id_;
 };
 
 void
-slice::theta(state &s,
+slice::theta(fixed_entity_based_state_object &s,
              const vector<slice_theta_t> &tparams,
              rng_t &rng)
 {
   vector<size_t> indices;
-  const vector<size_t> groups = s.groups();
   theta_scorefn theta_func;
   theta_func.s_ = &s;
   theta_func.rng_ = &rng;
   for (const auto &p : tparams) {
-    theta_func.fi_ = p.index_;
+    theta_func.component_ = p.index_;
+    const auto idents = s.suffstats_identifiers(p.index_);
     for (const auto &p1 : p.params_) {
-      util::permute(indices, groups.size(), rng);
+      util::inplace_permute(indices, idents.size(), rng);
       for (auto pi : indices) {
-        float *const px = reinterpret_cast<float *>(
-            s.get_suff_stats_raw_ptr(groups[pi], p.index_, p1.key_));
-        MICROSCOPES_ASSERT(px);
-        theta_func.hp_ = px;
-        theta_func.gi_ = groups[pi];
-        *px = sample(theta_func, *px, p1.w_, rng);
+        value_mutator mut = s.get_suffstats_value_mutator(p.index_, idents[pi], p1.key_);
+        theta_func.mut_ = &mut;
+        MICROSCOPES_DCHECK(
+            mut.type().t() == TYPE_F32 ||
+            mut.type().t() == TYPE_F64, "need floats");
+        theta_func.id_ = idents[pi];
+        const float start = mut.accessor().get<float>(0);
+        mut.set<float>(0, sample(theta_func, start, p1.w_, rng));
       }
     }
   }
