@@ -2,7 +2,7 @@ from microscopes.cxx.common.recarray.dataview import numpy_dataview
 from microscopes.cxx.common.rng import rng
 from microscopes.cxx.common.scalar_functions import log_exponential
 from microscopes.cxx.models import bb, dd
-from microscopes.cxx.mixture.model import state
+from microscopes.cxx.mixture.model import state, bind
 from microscopes.cxx.kernels.gibbs import assign
 from microscopes.cxx.kernels.slice import hp
 from microscopes.cxx.kernels.bootstrap import likelihood
@@ -70,6 +70,7 @@ def test_mnist_supervised():
 
     view = numpy_dataview(Y_train)
     s = make_dp(n, [bb]*(D-1) + [dd], {'alpha':0.2}, [{'alpha':1.,'beta':1.}]*(D-1) + [{'alphas':[1. for _ in classes]}])
+    bound_s = bind(s, view)
 
     r = rng()
     likelihood(s, view.view(False, r), r)
@@ -84,11 +85,11 @@ def test_mnist_supervised():
 
     def kernel(rid):
         start0 = time.time()
-        assign(s, view.view(True, r), r)
+        assign(bound_s, r)
         sec0 = time.time() - start0
 
         start1 = time.time()
-        hp(s, {}, hparams, r)
+        hp(bound_s, {}, hparams, r)
         sec1 = time.time() - start1
 
         print 'rid=', rid, 'nclusters=', s.ngroups(), 'iter0=', sec0, 'sec', 'iter1=', sec1, 'sec'
@@ -150,6 +151,7 @@ def test_mnist():
 
     view = numpy_dataview(Y)
     s = make_dp(Y.shape[0], [bb]*D, {'alpha':0.2}, [{'alpha':1.,'beta':1.}]*D)
+    bound_s = bind(s, view)
 
     r = rng()
     likelihood(s, view.view(False, r), r)
@@ -224,11 +226,11 @@ def test_mnist():
 
     def kernel(rid):
         start0 = time.time()
-        assign(s, view.view(True, r), r)
+        assign(bound_s, r)
         sec0 = time.time() - start0
 
         start1 = time.time()
-        hp(s, {}, hparams, r)
+        hp(bound_s, {}, hparams, r)
         sec1 = time.time() - start1
 
         print 'rid=', rid, 'nclusters=', s.ngroups(), 'iter0=', sec0, 'sec', 'iter1=', sec1, 'sec'
