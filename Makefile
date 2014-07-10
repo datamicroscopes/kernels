@@ -46,13 +46,13 @@ ifeq ($(UNAME_S),Linux)
 	TARGETS := $(O)/libmicroscopes_kernels.so
 	LIBPATH_VARNAME := LD_LIBRARY_PATH
 	EXTNAME := so
-	SHARED_FLAG := -shared
+	SOFLAGS := -shared
 endif
 ifeq ($(UNAME_S),Darwin)
 	TARGETS := $(O)/libmicroscopes_kernels.dylib
 	LIBPATH_VARNAME := DYLD_LIBRARY_PATH
 	EXTNAME := dylib
-	SHARED_FLAG := -dynamiclib
+	SOFLAGS := -dynamiclib -install_name $(TOP)/$(O)/libmicroscopes_kernels.$(EXTNAME)
 endif
 
 all: $(TARGETS)
@@ -62,7 +62,7 @@ $(O)/%.o: src/%.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 $(O)/libmicroscopes_kernels.$(EXTNAME): $(OBJFILES)
-	$(CXX) $(SHARED_FLAG) -o $@ $(OBJFILES) $(LDFLAGS)
+	$(CXX) -o $@ $(OBJFILES) $(LDFLAGS) $(SOFLAGS)
 
 %.prog: %.cpp $(O)/libmicroscopes_kernels.$(EXTNAME)
 	$(CXX) $(CXXFLAGS) $< -o $@ $(TESTPROG_LDFLAGS)
@@ -80,9 +80,9 @@ clean:
 .PHONY: test
 test: $(O)/libmicroscopes_kernels.$(EXTNAME)
 	python setup.py build_ext --inplace
-	$(LIBPATH_VARNAME)=$$$(LIBPATH_VARNAME):../common/out:../mixturemodel/out:./out PYTHONPATH=$$PYTHONPATH:../common:../mixturemodel:. nosetests 
+	$(LIBPATH_VARNAME)=$$$(LIBPATH_VARNAME):../common/out:../mixturemodel/out:../irm/out:./out PYTHONPATH=$$PYTHONPATH:../common:../mixturemodel:../irm:. nosetests 
 
 .PHONY: fast_test
 fast_test: $(O)/libmicroscopes_kernels.$(EXTNAME)
 	python setup.py build_ext --inplace
-	$(LIBPATH_VARNAME)=$$$(LIBPATH_VARNAME):../common/out:../mixturemodel/out:./out PYTHONPATH=$$PYTHONPATH:../common:../mixturemodel:. nosetests -a '!slow' 
+	$(LIBPATH_VARNAME)=$$$(LIBPATH_VARNAME):../common/out:../mixturemodel/out:../irm/out:./out PYTHONPATH=$$PYTHONPATH:../common:../mixturemodel:../irm:. nosetests -a '!slow' 
