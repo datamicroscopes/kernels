@@ -235,11 +235,11 @@ def _test_kernel_slice_hp(ctor, bbmodel, dataview, bind_fn, slice_hp_fn, fname, 
 
 @attr('slow')
 def test_kernel_slice_hp_py():
-    _test_kernel_slice_hp(py_state, py_bb, py_numpy_dataview, py_bind, py_slice_hp, 'grid_slice_hp_py_samples.pdf', None)
+    kernel_fn = lambda s, arg, rng: py_slice_hp(s, {}, arg, rng)
+    _test_kernel_slice_hp(py_state, py_bb, py_numpy_dataview, py_bind, kernel_fn, 'grid_slice_hp_py_samples.pdf', None)
 
-@attr('wip')
+@attr('slow')
 def test_kernel_slice_hp_cxx():
-    # XXX: the c++ version supports cluster HP sampling
     kernel_fn = lambda s, arg, rng: cxx_slice_hp(s, {}, arg, rng)
     _test_kernel_slice_hp(cxx_state, cxx_bb, cxx_numpy_dataview, cxx_bind, kernel_fn, 'grid_slice_hp_cxx_samples.pdf', rng())
 
