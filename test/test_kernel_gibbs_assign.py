@@ -1,16 +1,16 @@
 from distributions.dbg.models import bb as py_bb, gp as py_gp, nich as py_nich
 
-from microscopes.py.mixture.dp import state as py_state, sample, fill
+from microscopes.py.mixture.model import state as py_state, sample, fill, bind as py_bind
 from microscopes.py.common.recarray.dataview import numpy_dataview as py_numpy_dataview
 from microscopes.py.common.util import random_orthonormal_matrix
 from microscopes.py.kernels.gibbs import \
-        gibbs_assign as py_gibbs_assign, \
-        gibbs_assign_nonconj as py_gibbs_assign_nonconj
-from microscopes.py.kernels.slice import slice_theta as py_slice_theta
+        assign as py_gibbs_assign, \
+        assign_resample as py_gibbs_assign_nonconj
+from microscopes.py.kernels.slice import theta as py_slice_theta
 from microscopes.py.kernels.bootstrap import likelihood as py_bootstrap_likelihood
 from microscopes.py.models import bbnc as py_bbnc, niw as py_niw
 
-from microscopes.cxx.mixture.model import state as cxx_state
+from microscopes.cxx.mixture.model import state as cxx_state, bind as cxx_bind
 from microscopes.cxx.models import bb as cxx_bb, \
         gp as cxx_gp, \
         nich as cxx_nich, \
@@ -139,16 +139,18 @@ def _test_convergence_simple(
     # setup python version
     py_view = py_numpy_dataview(Y)
     py_bootstrap_likelihood(py_s, py_view.view(False))
+    py_bound_s = py_bind(py_s, py_view)
 
     # setup C++ version
     cxx_rng = rng(54389)
     cxx_view = cxx_numpy_dataview(Y)
     cxx_bootstrap_likelihood(cxx_s, cxx_view.view(False, cxx_rng), cxx_rng)
+    cxx_bound_s = cxx_bind(cxx_s, cxx_view)
 
-    def test_model(s, dataset, kernel, prng):
+    def test_model(s, kernel, prng):
         # burnin
         for _ in xrange(burnin_niters):
-            kernel(s, dataset.view(True, prng), prng)
+            kernel(s, prng)
 
         print 'finished burnin of', burnin_niters, 'iters'
 
@@ -161,7 +163,7 @@ def _test_convergence_simple(
             # now grab nsamples samples, every skip iters
             for _ in xrange(nsamples):
                 for _ in xrange(skip):
-                    kernel(s, dataset.view(True, prng), prng)
+                    kernel(s, prng)
                 gibbs_scores[idmap[tuple(permutation_canonical(s.assignments()))]] += 1
             gibbs_scores /= gibbs_scores.sum()
             kldiv = KL_discrete(actual_scores, gibbs_scores)
@@ -181,11 +183,10 @@ def _test_convergence_simple(
         assert False, 'failed to converge!'
 
     print 'testing cxx version'
-    test_model(cxx_s, cxx_view, cxx_kernel, cxx_rng)
+    test_model(cxx_bound_s, cxx_kernel, cxx_rng)
 
     print 'testing py version'
-    test_model(py_s, py_view, py_kernel, None)
-
+    test_model(py_bound_s, py_kernel, None)
 
 def test_convergence_bb():
     N = 4
@@ -217,7 +218,7 @@ def test_convergence_bb_missing():
         cxx_kernel=cxx_gibbs_assign,
         preprocess_data_fn=preprocess_fn)
 
-def _test_multivariate_models(ctor, bbmodel, niwmodel, dataview, bootstrap, gibbs_assign, R):
+def _test_multivariate_models(ctor, bbmodel, niwmodel, dataview, bootstrap, bind, gibbs_assign, R):
     mu0 = np.ones(3)
     lambda_ = 0.3
     Q = random_orthonormal_matrix(3)
@@ -236,9 +237,10 @@ def _test_multivariate_models(ctor, bbmodel, niwmodel, dataview, bootstrap, gibb
     X = np.array([genrow() for _ in xrange(N)], dtype=[('',bool),('',float,(3,))])
     view = dataview(X)
     bootstrap(s, view.view(False, R), R)
+    bound_s = bind(s, view)
 
     for _ in xrange(10):
-        gibbs_assign(s, view.view(True, R), R)
+        gibbs_assign(bound_s, R)
 
 def test_multivariate_models_py():
     _test_multivariate_models(
@@ -247,6 +249,7 @@ def test_multivariate_models_py():
         py_niw,
         py_numpy_dataview,
         py_bootstrap_likelihood,
+        py_bind,
         py_gibbs_assign,
         None)
 
@@ -257,10 +260,11 @@ def test_multivariate_models_cxx():
         cxx_niw,
         cxx_numpy_dataview,
         cxx_bootstrap_likelihood,
+        cxx_bind,
         cxx_gibbs_assign,
         rng())
 
-def _test_nonconj_inference(ctor, bbncmodel, dataview, assign_nonconj_fn, slice_theta_fn, R, ntries, nsamples, tol):
+def _test_nonconj_inference(ctor, bbncmodel, dataview, bind, assign_nonconj_fn, slice_theta_fn, R, ntries, nsamples, tol):
     N = 1000
     D = 5
     dpmm = make_dp(ctor, N, [bbncmodel]*D, {'alpha':0.2}, [{'alpha':1.0, 'beta':1.0}]*D)
@@ -279,20 +283,21 @@ def _test_nonconj_inference(ctor, bbncmodel, dataview, assign_nonconj_fn, slice_
     fill(dpmm, Y_clustered, R)
     Y = np.hstack(Y_clustered)
     view = dataview(Y)
+    bound_dpmm = bind(dpmm, view)
 
     def mkparam():
         return {'p':0.1}
     thetaparams = { fi : mkparam() for fi in xrange(D) }
     def kernel():
-        assign_nonconj_fn(dpmm, view.view(True, R), 10, R)
-        slice_theta_fn(dpmm, thetaparams, R)
+        assign_nonconj_fn(bound_dpmm, 10, R)
+        slice_theta_fn(bound_dpmm, thetaparams, R)
 
     def inference(niters):
         for _ in xrange(niters):
             kernel()
             groups = dpmm.groups()
             inferred_dominant = groups[np.argmax([dpmm.groupsize(gid) for gid in groups])]
-            inferred = np.array([dpmm.get_suff_stats(inferred_dominant, d)['p'] for d in xrange(D)])
+            inferred = np.array([dpmm.get_suffstats(inferred_dominant, d)['p'] for d in xrange(D)])
             yield inferred
 
     posterior = []
@@ -313,13 +318,13 @@ def _test_nonconj_inference(ctor, bbncmodel, dataview, assign_nonconj_fn, slice_
 @attr('slow')
 def test_nonconj_inference_py():
     _test_nonconj_inference(
-            py_state, py_bbnc, py_numpy_dataview,
+            py_state, py_bbnc, py_numpy_dataview, py_bind,
             py_gibbs_assign_nonconj, py_slice_theta, None, ntries=5, nsamples=100, tol=0.2)
 
 @attr('slow')
 def test_nonconj_inference_cxx():
     _test_nonconj_inference(
-            cxx_state, cxx_bbnc, cxx_numpy_dataview,
+            cxx_state, cxx_bbnc, cxx_numpy_dataview, cxx_bind,
             cxx_gibbs_assign_nonconj, cxx_slice_theta, rng(), ntries=5, nsamples=1000, tol=0.1)
 
 @attr('slow')
@@ -329,11 +334,11 @@ def test_nonconj_inference_kl():
     def mkparam():
         return {'p':0.1}
     thetaparams = { fi : mkparam() for fi in xrange(D) }
-    def kernel(s, view, R, assign_fn, slice_fn):
-        assign_fn(s, view, 10, R)
+    def kernel(s, R, assign_fn, slice_fn):
+        assign_fn(s, 10, R)
         slice_fn(s, thetaparams, R)
-    py_kernel = lambda s, view, R: kernel(s, view, R, py_gibbs_assign_nonconj, py_slice_theta)
-    cxx_kernel = lambda s, view, R: kernel(s, view, R, cxx_gibbs_assign_nonconj, cxx_slice_theta)
+    py_kernel = lambda s, R: kernel(s, R, py_gibbs_assign_nonconj, py_slice_theta)
+    cxx_kernel = lambda s, R: kernel(s, R, cxx_gibbs_assign_nonconj, cxx_slice_theta)
     _test_convergence_simple(
         N=N,
         py_models=[py_bbnc]*D,

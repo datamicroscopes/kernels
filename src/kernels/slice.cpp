@@ -91,11 +91,10 @@ struct theta_scorefn {
   inline float
   operator()(float m)
   {
-    mut_->set<float>(m, pos_);
+    mut_->set<float>(m, 0);
     return s_->score_likelihood(component_, id_, *rng_);
   }
   value_mutator *mut_;
-  size_t pos_;
   fixed_entity_based_state_object *s_;
   rng_t *rng_;
   size_t component_;
