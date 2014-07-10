@@ -5,4 +5,4 @@ from microscopes.cxx.common.recarray._dataview cimport abstract_dataview
 from microscopes.cxx.common._rng cimport rng
 
 def likelihood(state mm, abstract_dataview view, rng r):
-    c_likelihood(mm._thisptr[0], view._thisptr[0], r._thisptr[0])
+    c_likelihood(mm._thisptr.get()[0], view._thisptr.get()[0], r._thisptr[0])

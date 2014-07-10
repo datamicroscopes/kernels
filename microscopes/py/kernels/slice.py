@@ -79,10 +79,9 @@ class vector_param(object):
     def index(self):
         return self._idx
 
-def slice_hp(m, cparams, hparams, r=None):
-    # XXX: this can be done in parallel
+def hp(s, cparams, hparams, r=None):
     for fi, hparam in hparams.iteritems():
-        hp = m.get_feature_hp(fi)
+        hp = s.get_component_hp(fi)
         items = list(hparam.iteritems())
         for i in np.random.permutation(np.arange(len(items))):
             key, objs = items[i]
@@ -91,30 +90,30 @@ def slice_hp(m, cparams, hparams, r=None):
             for param in objs:
                 def pdf(x):
                     param.set(hp, key, x)
-                    m.set_feature_hp(fi, hp)
-                    return param._prior(x) + m.score_data(fi, None)
+                    s.set_component_hp(fi, hp)
+                    return param._prior(x) + s.score_likelihood(fi, rng)
                 param.set(hp, key, slice_sample(pdf, param.get(hp, key), param._w))
-        m.set_feature_hp(fi, hp)
-    hp = m.get_cluster_hp()
+        s.set_component_hp(fi, hp)
+    hp = s.get_cluster_hp()
     for key, objs in cparams.iteritems():
         if not hasattr(objs, '__iter__'):
            objs = [objs]
         for param in objs:
             def pdf(x):
                 param.set(hp, key, x)
-                m.set_cluster_hp(hp)
-                return param._prior(x) + m.score_assignment()
+                s.set_cluster_hp(hp)
+                return param._prior(x) + s.score_assignment()
             param.set(hp, key, slice_sample(pdf, param.get(hp, key), param._w))
-    m.set_cluster_hp(hp)
+    s.set_cluster_hp(hp)
 
-def slice_theta(m, tparams, r=None):
-    groups = np.array(m.groups(), dtype=np.int)
+def theta(s, tparams, r=None):
     for fi, params in tparams.iteritems():
+        groups = np.array(s.suffstats_identifiers(fi), dtype=np.int)
         for k, w in params.iteritems():
             for gi in groups[np.random.permutation(len(groups))]:
-                theta = m.get_suff_stats(gi, fi)
+                theta = s.get_suffstats(fi, gi)
                 def pdf(x):
                     theta[k] = x
-                    m.set_suff_stats(gi, fi, theta)
-                    return m.score_data(fi, gi, r)
+                    s.set_suffstats(fi, gi, theta)
+                    return s.score_likelihood_indiv(fi, gi, r)
                 theta[k] = slice_sample(pdf, theta[k], w)
