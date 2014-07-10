@@ -1,17 +1,20 @@
-from microscopes.py.mixture.dp import state as py_state, fill
-from microscopes.py.kernels.gibbs import gibbs_hp as py_gibbs_hp
-from microscopes.py.kernels.slice import slice_hp as py_slice_hp, scalar_param
+from microscopes.py.mixture.model import state as py_state, fill, bind as py_bind
+from microscopes.py.kernels.gibbs import hp as py_gibbs_hp
+from microscopes.py.kernels.slice import hp as py_slice_hp, scalar_param
 from distributions.dbg.models import bb as py_bb
 
-from microscopes.cxx.mixture.model import state as cxx_state
+from microscopes.cxx.mixture.model import state as cxx_state, bind as cxx_bind
 from microscopes.cxx.kernels.gibbs import hp as cxx_gibbs_hp
 from microscopes.cxx.kernels.slice import hp as cxx_slice_hp
 from microscopes.cxx.models import bb as cxx_bb
 from microscopes.cxx.common.rng import rng
 from microscopes.cxx.common.scalar_functions import log_exponential
 
+from microscopes.py.common.recarray.dataview import numpy_dataview as py_numpy_dataview
+from microscopes.cxx.common.recarray.dataview import numpy_dataview as cxx_numpy_dataview
+
 from microscopes.py.common.util import almost_eq
-from microscopes.py.kernels.mh import mh_hp
+#from microscopes.py.kernels.mh import mh_hp
 
 import numpy as np
 import math
@@ -82,6 +85,8 @@ def _test_hp_inference(
     bbmodel,
     prior_fn,
     grid_min, grid_max, grid_n,
+    dataview,
+    bind_fn,
     init_inf_kernel_state_fn,
     inf_kernel_fn,
     map_actual_postprocess_fn,
@@ -94,6 +99,8 @@ def _test_hp_inference(
     Nk = 1000
     K = 100
     s, Y_clustered = _make_one_feature_bb_mm(ctor, bbmodel, Nk, K, 0.8, 1.2, prng)
+    view = dataview(np.hstack(Y_clustered))
+    bound_s = bind_fn(s, view)
 
     xgrid, ygrid, z_actual = _grid_actual(s, prior_fn, grid_min, grid_max, grid_n, prng)
 
@@ -114,15 +121,15 @@ def _test_hp_inference(
     z_sample = np.zeros(xgrid.shape)
     opaque = init_inf_kernel_state_fn(s)
     for _ in xrange(burnin):
-        inf_kernel_fn(s, opaque, prng)
+        inf_kernel_fn(bound_s, opaque, prng)
     print 'finished burnin of', burnin, 'iterations'
 
     def trial():
         def posterior(k, skip):
             for _ in xrange(k):
                 for _ in xrange(skip-1):
-                    inf_kernel_fn(s, opaque, prng)
-                inf_kernel_fn(s, opaque, prng)
+                    inf_kernel_fn(bound_s, opaque, prng)
+                inf_kernel_fn(bound_s, opaque, prng)
                 hp = s.get_feature_hp(0)
                 yield np.array([hp['alpha'], hp['beta']])
         for samp in posterior(nsamples, skip):
@@ -157,7 +164,7 @@ def _test_hp_inference(
     draw_grid_plot() # useful for debugging
     assert False, 'MAP value did not converge to desired tolerance'
 
-def _test_kernel_gibbs_hp(ctor, bbmodel, gibbs_hp_fn, fname, prng):
+def _test_kernel_gibbs_hp(ctor, bbmodel, dataview, bind_fn, gibbs_hp_fn, fname, prng):
     grid_min, grid_max, grid_n = 0.01, 5.0, 10
     grid = tuple({'alpha':alpha,'beta':beta} \
         for alpha, beta in it.product(np.linspace(grid_min, grid_max, grid_n), repeat=2))
@@ -178,6 +185,8 @@ def _test_kernel_gibbs_hp(ctor, bbmodel, gibbs_hp_fn, fname, prng):
         bbmodel,
         _bb_hyperprior_pdf,
         grid_min, grid_max, grid_n,
+        dataview,
+        bind_fn,
         init_inf_kernel_state_fn,
         gibbs_hp_fn,
         map_actual_postprocess_fn,
@@ -189,13 +198,13 @@ def _test_kernel_gibbs_hp(ctor, bbmodel, gibbs_hp_fn, fname, prng):
 
 @attr('slow')
 def test_kernel_gibbs_hp_py():
-    _test_kernel_gibbs_hp(py_state, py_bb, py_gibbs_hp, 'grid_gibbs_hp_samples_py.pdf', None)
+    _test_kernel_gibbs_hp(py_state, py_bb, py_numpy_dataview, py_bind, py_gibbs_hp, 'grid_gibbs_hp_samples_py.pdf', None)
 
 @attr('slow')
 def test_kernel_gibbs_hp_cxx():
-    _test_kernel_gibbs_hp(cxx_state, cxx_bb, cxx_gibbs_hp, 'grid_gibbs_hp_samples_cxx.pdf', rng())
+    _test_kernel_gibbs_hp(cxx_state, cxx_bb, cxx_numpy_dataview, cxx_bind, cxx_gibbs_hp, 'grid_gibbs_hp_samples_cxx.pdf', rng())
 
-def _test_kernel_slice_hp(ctor, bbmodel, slice_hp_fn, fname, prng):
+def _test_kernel_slice_hp(ctor, bbmodel, dataview, bind_fn, slice_hp_fn, fname, prng):
     grid_min, grid_max, grid_n = 0.01, 5.0, 200
     indiv_prior_fn = log_exponential(1.2)
     def init_inf_kernel_state_fn(s):
@@ -213,6 +222,8 @@ def _test_kernel_slice_hp(ctor, bbmodel, slice_hp_fn, fname, prng):
         bbmodel,
         prior_fn,
         grid_min, grid_max, grid_n,
+        dataview,
+        bind_fn,
         init_inf_kernel_state_fn,
         slice_hp_fn,
         map_actual_postprocess_fn=lambda x: x,
@@ -224,11 +235,13 @@ def _test_kernel_slice_hp(ctor, bbmodel, slice_hp_fn, fname, prng):
 
 @attr('slow')
 def test_kernel_slice_hp_py():
-    _test_kernel_slice_hp(py_state, py_bb, py_slice_hp, 'grid_slice_hp_py_samples.pdf', None)
+    _test_kernel_slice_hp(py_state, py_bb, py_numpy_dataview, py_bind, py_slice_hp, 'grid_slice_hp_py_samples.pdf', None)
 
-@attr('slow')
+@attr('wip')
 def test_kernel_slice_hp_cxx():
-    _test_kernel_slice_hp(cxx_state, cxx_bb, cxx_slice_hp, 'grid_slice_hp_cxx_samples.pdf', rng())
+    # XXX: the c++ version supports cluster HP sampling
+    kernel_fn = lambda s, arg, rng: cxx_slice_hp(s, {}, arg, rng)
+    _test_kernel_slice_hp(cxx_state, cxx_bb, cxx_numpy_dataview, cxx_bind, kernel_fn, 'grid_slice_hp_cxx_samples.pdf', rng())
 
 #@attr('slow')
 #def test_kernel_mh_hp():
