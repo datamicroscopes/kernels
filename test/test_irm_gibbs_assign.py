@@ -14,7 +14,7 @@ from microscopes.cxx.common.recarray.dataview import \
         numpy_dataview as rec_numpy_dataview
 
 from microscopes.cxx.models import bb, bbnc
-from microscopes.cxx.kernels.gibbs import assign
+from microscopes.cxx.kernels.gibbs import assign, assign_resample
 from microscopes.cxx.kernels.slice import theta
 
 from microscopes.py.common.util import KL_discrete
@@ -120,6 +120,7 @@ def test_compare_to_mixture_model():
                 assert a['heads'] == b['heads'] and a['tails'] == b['tails']
 
     assert_suff_stats_equal()
+    assert_almost_equals( mm_s.score_assignment(), irm_s.score_assignment(0), places=3 )
 
     bound_mm_s = mm_bind(mm_s, mm_view)
     bound_irm_s = irm_bind(irm_s, 0, [irm_view])
@@ -136,7 +137,6 @@ def test_compare_to_mixture_model():
 
     assert gid_a == gid_b
     assert_suff_stats_equal()
-    assert_almost_equals( mm_s.score_assignment(), irm_s.score_assignment(0), places=3 )
 
     x0, y0 = bound_mm_s.score_value(0, r)
     x1, y1 = bound_irm_s.score_value(0, r)
@@ -256,16 +256,16 @@ def test_one_binary_one_ternary():
 
 def test_one_binary_nonconj():
     # 1 domain, 1 binary relation, nonconj
-    domains = [2]
+    domains = [3]
     def mk_relations(model): return [((0,0), model)]
     data = [spnd_numpy_dataview(
         ma.array(
             np.random.choice([False, True], size=(domains[0], domains[0])),
             mask=np.random.choice([False, True], size=(domains[0], domains[0]))))]
     def mkparam():
-        return {'p':0.1}
+        return {'p':0.05}
     params = { 0 : mkparam() }
     def kernel(s, r):
-        assign(s, r)
+        assign_resample(s, 10, r)
         theta(s, params, r)
-    _test_convergence(domains, data, mk_relations(bbnc), mk_relations(bb), kernel, burnin_niters=20000, threshold=0.05)
+    _test_convergence(domains, data, mk_relations(bbnc), mk_relations(bb), kernel)
