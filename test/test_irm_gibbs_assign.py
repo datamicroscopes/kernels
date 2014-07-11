@@ -24,6 +24,7 @@ import numpy.ma as ma
 import itertools as it
 from scipy.misc import logsumexp
 
+from nose.tools import assert_almost_equals
 from nose.plugins.attrib import attr
 
 # XXX: dont duplicate code -- need a general model convergence test
@@ -78,7 +79,6 @@ def _assign_to_clustering(assignment):
         k[gid] = v
     return list(k.values())
 
-@attr('wip')
 def test_compare_to_mixture_model():
     r = rng()
 
@@ -95,21 +95,35 @@ def test_compare_to_mixture_model():
     irm_s = irm_state([N, D], [((0,1),bb)])
 
     mm_s.set_cluster_hp({'alpha':2.})
-    mm_s.set_feature_hp(0, {'alpha':1.,'beta':1.})
+    for i in xrange(D):
+        mm_s.set_feature_hp(i, {'alpha':1.,'beta':1.})
     irm_s.set_domain_hp(0, {'alpha':2.})
     irm_s.set_relation_hp(0, {'alpha':1.,'beta':1.})
 
     perms = list(permutation_iter(N))
     assignment = perms[np.random.randint(0, len(perms))]
-    print assignment
 
     mm_fill(mm_s, cluster(Y_rec, assignment), r)
     irm_fill(irm_s, [_assign_to_clustering(assignment), [[i] for i in xrange(D)]], [irm_view], r)
 
+    def assert_suff_stats_equal():
+        assert set(mm_s.groups()) == set(irm_s.groups(0))
+        assert irm_s.groups(1) == range(D)
+        groups = mm_s.groups()
+        for g in groups:
+            for i in xrange(D):
+                a = mm_s.get_suffstats(g, i)
+                b = irm_s.get_suffstats(0, [g, i])
+                if b is None:
+                    b = {'heads':0L, 'tails':0L}
+                assert a['heads'] == b['heads'] and a['tails'] == b['tails']
+
+    assert_suff_stats_equal()
+
     bound_mm_s = mm_bind(mm_s, mm_view)
     bound_irm_s = irm_bind(irm_s, 0, [irm_view])
 
-    # doesn't really have to be true, just is true of impl
+    # XXX: doesn't really have to be true, just is true of impl
     assert not bound_mm_s.empty_groups()
     assert not bound_irm_s.empty_groups()
 
@@ -120,19 +134,25 @@ def test_compare_to_mixture_model():
     gid_b = bound_irm_s.remove_value(0, r)
 
     assert gid_a == gid_b
+    assert_suff_stats_equal()
+    assert_almost_equals( mm_s.score_assignment(), irm_s.score_assignment(0), places=3 )
 
-    print bound_mm_s.score_value(0, r)
-    print bound_irm_s.score_value(0, r)
+    x0, y0 = bound_mm_s.score_value(0, r)
+    x1, y1 = bound_irm_s.score_value(0, r)
+    assert x0 == x1 # XXX: not really a requirement
 
+    # XXX: should really normalize and then check
+    for a, b in zip(y0, y1):
+        assert_almost_equals(a, b, places=2)
 
 def test_simple():
     # 1 domain, 1 binary relation
 
     r = rng()
 
-    domains = [3]
+    domains = [4]
     relations = [((0,0), bb)]
-    data = [numpy_dataview(
+    data = [spnd_numpy_dataview(
         ma.array(
             np.random.choice([False, True], size=(domains[0], domains[0])),
             mask=np.random.choice([False, True], size=(domains[0], domains[0]))))]
@@ -147,7 +167,7 @@ def test_simple():
     def posterior(assignments):
         brute = mk()
         irm_fill(brute, [_assign_to_clustering(assignments)], data, r)
-        return brute.score_assignment() + brute.score_likelihood(r);
+        return brute.score_assignment(0) + brute.score_likelihood(r);
     actual_scores = np.array(map(posterior, permutation_iter(domains[0])))
     actual_scores -= logsumexp(actual_scores)
     actual_scores = np.exp(actual_scores)
@@ -156,8 +176,8 @@ def test_simple():
     irm_random_initialize(s, data, r)
     bound_s0 = irm_bind(s, 0, data)
 
-    burnin_niters = 20000
-    nsamples = 2000
+    burnin_niters = 10000
+    nsamples = 1000
     skip = 10
     attempts = 5
     threshold = 0.01
