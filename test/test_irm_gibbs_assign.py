@@ -145,29 +145,25 @@ def test_compare_to_mixture_model():
     for a, b in zip(y0, y1):
         assert_almost_equals(a, b, places=2)
 
-def test_simple():
-    # 1 domain, 1 binary relation
-
+def _test_convergence(domains, relations, data):
     r = rng()
-
-    domains = [4]
-    relations = [((0,0), bb)]
-    data = [spnd_numpy_dataview(
-        ma.array(
-            np.random.choice([False, True], size=(domains[0], domains[0])),
-            mask=np.random.choice([False, True], size=(domains[0], domains[0]))))]
+    assert len(domains) == 1
 
     def mk():
         s = irm_state(domains, relations)
-        s.set_domain_hp(0, {'alpha':2.0})
-        s.set_relation_hp(0, {'alpha':1., 'beta':1.})
+        for d in xrange(len(domains)):
+            s.set_domain_hp(d, {'alpha':2.0})
+        for r in xrange(len(relations)):
+            s.set_relation_hp(r, {'alpha':1., 'beta':1.})
         return s
 
     idmap = { C : i for i, C in enumerate(permutation_iter(domains[0])) }
     def posterior(assignments):
         brute = mk()
         irm_fill(brute, [_assign_to_clustering(assignments)], data, r)
-        return brute.score_assignment(0) + brute.score_likelihood(r);
+        assign = brute.score_assignment(0)
+        likelihood = brute.score_likelihood(r)
+        return assign + likelihood
     actual_scores = np.array(map(posterior, permutation_iter(domains[0])))
     actual_scores -= logsumexp(actual_scores)
     actual_scores = np.exp(actual_scores)
@@ -215,3 +211,45 @@ def test_simple():
         print 'WARNING: did not converge, trying', outer, 'more times'
 
     assert False, 'failed to converge!'
+
+def test_one_binary():
+    # 1 domain, 1 binary relation
+    domains = [4]
+    relations = [((0,0), bb)]
+    data = [spnd_numpy_dataview(
+        ma.array(
+            np.random.choice([False, True], size=(domains[0], domains[0])),
+            mask=np.random.choice([False, True], size=(domains[0], domains[0]))))]
+    _test_convergence(domains, relations, data)
+
+def test_two_binary():
+    # 1 domain, 2 binary relations
+    domains = [4]
+    relations = [((0,0), bb), ((0,0), bb)]
+    data = [
+        spnd_numpy_dataview(
+            ma.array(
+                np.random.choice([False, True], size=(domains[0], domains[0])),
+                mask=np.random.choice([False, True], size=(domains[0], domains[0])))),
+        spnd_numpy_dataview(
+            ma.array(
+                np.random.choice([False, True], size=(domains[0], domains[0])),
+                mask=np.random.choice([False, True], size=(domains[0], domains[0])))),
+    ]
+    _test_convergence(domains, relations, data)
+
+def test_one_binary_one_ternary():
+    # 1 domain, 1 binary, 1 ternary
+    domains = [4]
+    relations = [((0,0), bb), ((0,0,0), bb)]
+    data = [
+        spnd_numpy_dataview(
+            ma.array(
+                np.random.choice([False, True], size=(domains[0], domains[0])),
+                mask=np.random.choice([False, True], size=(domains[0], domains[0])))),
+        spnd_numpy_dataview(
+            ma.array(
+                np.random.choice([False, True], size=(domains[0], domains[0], domains[0])),
+                mask=np.random.choice([False, True], size=(domains[0], domains[0], domains[0])))),
+    ]
+    _test_convergence(domains, relations, data)
