@@ -13,8 +13,9 @@ from microscopes.cxx.common.sparse_ndarray.dataview import \
 from microscopes.cxx.common.recarray.dataview import \
         numpy_dataview as rec_numpy_dataview
 
-from microscopes.cxx.models import bb
+from microscopes.cxx.models import bb, bbnc
 from microscopes.cxx.kernels.gibbs import assign
+from microscopes.cxx.kernels.slice import theta
 
 from microscopes.py.common.util import KL_discrete
 
@@ -145,11 +146,16 @@ def test_compare_to_mixture_model():
     for a, b in zip(y0, y1):
         assert_almost_equals(a, b, places=2)
 
-def _test_convergence(domains, relations, data):
+def _test_convergence(domains, data, reg_relations, brute_relations, kernel,
+                      burnin_niters=10000,
+                      nsamples=1000,
+                      skip=10,
+                      attempts=5,
+                      threshold=0.01):
     r = rng()
     assert len(domains) == 1
 
-    def mk():
+    def mk(relations):
         s = irm_state(domains, relations)
         for d in xrange(len(domains)):
             s.set_domain_hp(d, {'alpha':2.0})
@@ -159,7 +165,7 @@ def _test_convergence(domains, relations, data):
 
     idmap = { C : i for i, C in enumerate(permutation_iter(domains[0])) }
     def posterior(assignments):
-        brute = mk()
+        brute = mk(brute_relations)
         irm_fill(brute, [_assign_to_clustering(assignments)], data, r)
         assign = brute.score_assignment(0)
         likelihood = brute.score_likelihood(r)
@@ -168,15 +174,9 @@ def _test_convergence(domains, relations, data):
     actual_scores -= logsumexp(actual_scores)
     actual_scores = np.exp(actual_scores)
 
-    s = mk()
+    s = mk(reg_relations)
     irm_random_initialize(s, data, r)
     bound_s0 = irm_bind(s, 0, data)
-
-    burnin_niters = 10000
-    nsamples = 1000
-    skip = 10
-    attempts = 5
-    threshold = 0.01
 
     # burnin
     for _ in xrange(burnin_niters):
@@ -193,7 +193,7 @@ def _test_convergence(domains, relations, data):
         # now grab nsamples samples, every skip iters
         for _ in xrange(nsamples):
             for _ in xrange(skip):
-                assign(bound_s0, r)
+                kernel(bound_s0, r)
             gibbs_scores[idmap[tuple(permutation_canonical(bound_s0.assignments()))]] += 1
         gibbs_scores /= gibbs_scores.sum()
         kldiv = KL_discrete(actual_scores, gibbs_scores)
@@ -215,17 +215,17 @@ def _test_convergence(domains, relations, data):
 def test_one_binary():
     # 1 domain, 1 binary relation
     domains = [4]
-    relations = [((0,0), bb)]
+    def mk_relations(model): return [((0,0), model)]
     data = [spnd_numpy_dataview(
         ma.array(
             np.random.choice([False, True], size=(domains[0], domains[0])),
             mask=np.random.choice([False, True], size=(domains[0], domains[0]))))]
-    _test_convergence(domains, relations, data)
+    _test_convergence(domains, data, mk_relations(bb), mk_relations(bb), assign)
 
 def test_two_binary():
     # 1 domain, 2 binary relations
     domains = [4]
-    relations = [((0,0), bb), ((0,0), bb)]
+    def mk_relations(model): return [((0,0), model), ((0,0), model)]
     data = [
         spnd_numpy_dataview(
             ma.array(
@@ -236,12 +236,12 @@ def test_two_binary():
                 np.random.choice([False, True], size=(domains[0], domains[0])),
                 mask=np.random.choice([False, True], size=(domains[0], domains[0])))),
     ]
-    _test_convergence(domains, relations, data)
+    _test_convergence(domains, data, mk_relations(bb), mk_relations(bb), assign)
 
 def test_one_binary_one_ternary():
     # 1 domain, 1 binary, 1 ternary
     domains = [4]
-    relations = [((0,0), bb), ((0,0,0), bb)]
+    def mk_relations(model): return [((0,0), model), ((0,0,0), model)]
     data = [
         spnd_numpy_dataview(
             ma.array(
@@ -252,4 +252,20 @@ def test_one_binary_one_ternary():
                 np.random.choice([False, True], size=(domains[0], domains[0], domains[0])),
                 mask=np.random.choice([False, True], size=(domains[0], domains[0], domains[0])))),
     ]
-    _test_convergence(domains, relations, data)
+    _test_convergence(domains, data, mk_relations(bb), mk_relations(bb), assign)
+
+def test_one_binary_nonconj():
+    # 1 domain, 1 binary relation, nonconj
+    domains = [2]
+    def mk_relations(model): return [((0,0), model)]
+    data = [spnd_numpy_dataview(
+        ma.array(
+            np.random.choice([False, True], size=(domains[0], domains[0])),
+            mask=np.random.choice([False, True], size=(domains[0], domains[0]))))]
+    def mkparam():
+        return {'p':0.1}
+    params = { 0 : mkparam() }
+    def kernel(s, r):
+        assign(s, r)
+        theta(s, params, r)
+    _test_convergence(domains, data, mk_relations(bbnc), mk_relations(bb), kernel, burnin_niters=20000, threshold=0.05)
