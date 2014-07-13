@@ -20,7 +20,13 @@ import numpy as np
 import math
 import scipy as sp
 import scipy.stats
-import matplotlib.pylab as plt
+
+try:
+    import matplotlib.pylab as plt
+    has_plt = True
+except ImportError:
+    has_plt = False
+
 import itertools as it
 
 from nose.plugins.attrib import attr
@@ -137,6 +143,8 @@ def _test_hp_inference(
             _add_to_grid(xgrid, ygrid, z_sample, samp)
 
     def draw_grid_plot():
+        if not has_plt:
+            return
         plt.imshow(z_sample, cmap=plt.cm.binary, origin='lower',
             interpolation='nearest',
             extent=(grid_min, grid_max, grid_min, grid_max))

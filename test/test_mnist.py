@@ -11,16 +11,17 @@ from microscopes.py.kernels.slice import scalar_param, vector_param
 from sklearn.datasets import fetch_mldata
 from sklearn.cross_validation import train_test_split
 from sklearn.metrics import accuracy_score, roc_curve, roc_auc_score
-mnist_dataset = fetch_mldata('MNIST original')
 
 import numpy as np
 import numpy.ma as ma
-import matplotlib.pylab as plt
 import math
 import time
 
 from nose.plugins.attrib import attr
 from PIL import Image, ImageOps
+
+def _get_mnist_dataset():
+    return fetch_mldata('MNIST original')
 
 def make_dp(n, models, clusterhp, featurehps):
     s = state(n, models)
@@ -43,7 +44,9 @@ def groupsbysize(s):
 
 @attr('slow')
 def test_mnist_supervised():
+    import matplotlib.pylab as plt
     #classes = [2, 3, 4]
+    mnist_dataset = _get_mnist_dataset()
     classes = range(10)
     classmap = { c : i for i, c in enumerate(classes) }
     train_data, test_data = [], []
@@ -138,6 +141,8 @@ def test_mnist_supervised():
 
 @attr('slow')
 def test_mnist():
+    import matplotlib.pylab as plt
+    mnist_dataset = _get_mnist_dataset()
     Y_2 = mnist_dataset['data'][np.where(mnist_dataset['target'] == 2.)[0]]
     Y_3 = mnist_dataset['data'][np.where(mnist_dataset['target'] == 3.)[0]]
     print 'number of twos:', Y_2.shape[0]
