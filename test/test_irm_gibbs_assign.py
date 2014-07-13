@@ -179,7 +179,7 @@ def _test_convergence(domains, data, reg_relations, brute_relations, kernel,
 
     # burnin
     for _ in xrange(burnin_niters):
-        assign(bound_s0, r)
+        kernel(bound_s0, r)
 
     print 'finished burnin of', burnin_niters, 'iters'
 
@@ -267,4 +267,4 @@ def test_one_binary_nonconj():
     def kernel(s, r):
         assign_resample(s, 10, r)
         theta(s, params, r)
-    _test_convergence(domains, data, mk_relations(bbnc), mk_relations(bb), kernel)
+    _test_convergence(domains, data, mk_relations(bbnc), mk_relations(bb), kernel, burnin_niters=20000)
