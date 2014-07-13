@@ -25,14 +25,13 @@ from microscopes.cxx.kernels.gibbs import \
 from microscopes.cxx.kernels.slice import theta as cxx_slice_theta
 from microscopes.cxx.kernels.bootstrap import likelihood as cxx_bootstrap_likelihood
 
-from microscopes.py.common.util import KL_discrete
+from microscopes.py.common.util import KL_discrete, logsumexp
 from microscopes.py.models import bbnc
 
 import itertools as it
 import math
 import numpy as np
 import numpy.ma as ma
-from scipy.misc import logsumexp
 
 from nose.plugins.attrib import attr
 

@@ -17,13 +17,12 @@ from microscopes.cxx.models import bb, bbnc
 from microscopes.cxx.kernels.gibbs import assign, assign_resample
 from microscopes.cxx.kernels.slice import theta
 
-from microscopes.py.common.util import KL_discrete
+from microscopes.py.common.util import KL_discrete, logsumexp
 
 import numpy as np
 import numpy.ma as ma
 
 import itertools as it
-from scipy.misc import logsumexp
 
 from nose.tools import assert_almost_equals
 from nose.plugins.attrib import attr
