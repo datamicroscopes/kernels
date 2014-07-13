@@ -104,6 +104,8 @@ travis_before_install:
 	git clone https://$(READ_ONLY_USERNAME):$(READ_ONLY_PASSWORD)@github.com/datamicroscopes/mixturemodel.git .travis/mixturemodel
 	git clone https://$(READ_ONLY_USERNAME):$(READ_ONLY_PASSWORD)@github.com/datamicroscopes/irm.git .travis/irm
 	$(MAKE) -C .travis/common travis_before_install
+	$(MAKE) -C .travis/mixturemodel travis_before_install
+	$(MAKE) -C .travis/irm travis_before_install
 
 .PHONY: travis_install
 travis_install:
