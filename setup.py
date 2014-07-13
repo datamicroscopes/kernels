@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 from distutils.core import setup
 from distutils.extension import Extension
 from distutils.version import LooseVersion
@@ -16,12 +14,86 @@ clang = False
 if sys.platform.lower().startswith('darwin'):
     clang = True
 
+min_cython_version = '0.20.2b1' if clang else '0.20.1'
+if LooseVersion(cython_version) < LooseVersion(min_cython_version):
+    raise ValueError(
+        'cython support requires cython>={}'.format(min_cython_version))
+
+so_ext = 'dylib' if clang else 'so'
+
+KEYS = (
+    'DISTRIBUTIONS_INC',
+    'DISTRIBUTIONS_LIB',
+    'CC',
+    'CXX',
+    'DEBUG',
+    'MICROSCOPES_COMMON_REPO',
+    'MICROSCOPES_MIXTUREMODEL_REPO',
+    'MICROSCOPES_IRM_REPO',
+    )
+
+def get_config_info(config):
+    config = parse_makefile(config)
+    ret = {}
+    for k in KEYS:
+        if k in config:
+            ret[k] = config[k]
+    return ret
+
+def merge_config(existing, overwriting):
+    existing.update(overwriting)
+
+config = {}
+for fname in ('../config.mk', 'config.mk'):
+    try:
+        merge_config(config, get_config_info(fname))
+    except IOError:
+        pass
+
+distributions_inc = config.get('DISTRIBUTIONS_INC', None)
+distributions_lib = config.get('DISTRIBUTIONS_LIB', None)
+cc = config.get('CC', None)
+cxx = config.get('CXX', None)
+debug_build = config.get('DEBUG', 0) == 1
+microscopes_common_repo = config.get('MICROSCOPES_COMMON_REPO', None)
+microscopes_mixturemodel_repo = config.get('MICROSCOPES_MIXTUREMODEL_REPO', None)
+microscopes_irm_repo = config.get('MICROSCOPES_IRM_REPO', None)
+
+if distributions_inc is not None:
+    print 'Using distributions_inc:', distributions_inc
+if distributions_lib is not None:
+    print 'Using distributions_lib:', distributions_lib
+if cc is not None:
+    print 'Using CC={}'.format(cc)
+    os.environ['CC'] = cc
+if cxx is not None:
+    print 'Using CXX={}'.format(cxx)
+    os.environ['CXX'] = cxx
+if debug_build:
+    print 'Debug build'
+if microscopes_common_repo:
+    print 'Using microscopes_common_repo:', microscopes_common_repo
+else:
+    microscopes_common_repo = '../common' # default path
+if microscopes_mixturemodel_repo:
+    print 'Using microscopes_mixturemodel_repo:', microscopes_mixturemodel_repo
+else:
+    microscopes_mixturemodel_repo = '../mixturemodel' # default path
+if microscopes_irm_repo:
+    print 'Using microscopes_irm_repo:', microscopes_irm_repo
+else:
+    microscopes_irm_repo = '../irm' # default path
+
+# check that microscopes_common_repo is a valid dir
+if not os.path.isdir(microscopes_common_repo):
+    raise ValueError('not a valid directory: {}'.format(microscopes_common_repo))
+
 # make sure C shared libraries exists
-shared_libraries = [
-    '../common/out/libmicroscopes_common.dylib' if clang else '../common/out/libmicroscopes_common.so',
-    '../mixturemodel/out/libmicroscopes_mixturemodel.dylib' if clang else '../mixturemodel/out/libmicroscopes_mixturemodel.so',
-    'out/libmicroscopes_kernels.dylib' if clang else 'out/libmicroscopes_kernels.so',
-]
+shared_libraries = (
+    '{}/out/libmicroscopes_common.{}'.format(microscopes_common_repo, so_ext),
+    '{}/out/libmicroscopes_mixturemodel.{}'.format(microscopes_mixturemodel_repo, so_ext),
+    'out/libmicroscopes_kernels.{}'.format(so_ext),
+)
 
 for so in shared_libraries:
     if not os.path.isfile(so):
@@ -29,28 +101,9 @@ for so in shared_libraries:
             "could not locate `{}'. make sure to run `make' first".format(so))
 
 # append to library path
-os.environ['LIBRARY_PATH'] = os.environ.get('LIBRARY_PATH', '') + ':../common/out:../mixturemodel/out:out'
-
-min_cython_version = '0.20.2b1' if clang else '0.20.1'
-if LooseVersion(cython_version) < LooseVersion(min_cython_version):
-    raise ValueError(
-        'cython support requires cython>={}'.format(min_cython_version))
-
-distributions_inc, distributions_lib, debug_build = None, None, False
-try:
-    config = parse_makefile('../config.mk')
-    distributions_inc = config.get('DISTRIBUTIONS_INC', None)
-    distributions_lib = config.get('DISTRIBUTIONS_LIB', None)
-    debug_build = config.get('DEBUG', 0) == 1
-except IOError:
-    pass
-
-if distributions_inc is not None:
-    print 'Using distributions_inc:', distributions_inc
-if distributions_lib is not None:
-    print 'Using distributions_lib:', distributions_lib
-if debug_build:
-    print 'Debug build'
+os.environ['LIBRARY_PATH'] = \
+        os.environ.get('LIBRARY_PATH', '') + \
+        ':{}/out:{}/out:out'.format(microscopes_common_repo, microscopes_mixturemodel_repo)
 
 extra_compile_args = ['-std=c++0x']
 if clang:
@@ -79,7 +132,7 @@ def make_extension(module_name):
         sources=sources,
         libraries=["microscopes_common", "microscopes_mixturemodel", "microscopes_kernels", "protobuf", "distributions_shared"],
         language="c++",
-        include_dirs=[numpy.get_include(), '../common/include', '../mixturemodel/include', 'include'] + extra_include_dirs,
+        include_dirs=[numpy.get_include(), '{}/include'.format(microscopes_common_repo), '{}/include'.format(microscopes_mixturemodel_repo), 'include'] + extra_include_dirs,
         extra_compile_args=extra_compile_args,
         extra_link_args=extra_link_args)
 
@@ -87,6 +140,6 @@ extensions = cythonize([
     make_extension('microscopes.cxx.kernels.gibbs'),
     make_extension('microscopes.cxx.kernels.slice'),
     make_extension('microscopes.cxx.kernels.bootstrap'),
-], include_path=['../common', '../mixturemodel'])
+], include_path=[microscopes_common_repo, microscopes_mixturemodel_repo])
 
 setup(ext_modules=extensions)

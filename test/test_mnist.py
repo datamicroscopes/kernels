@@ -41,7 +41,7 @@ def groupsbysize(s):
     counts = sorted(counts, key=lambda x: x[1], reverse=True)
     return counts
 
-@attr('wip')
+@attr('slow')
 def test_mnist_supervised():
     #classes = [2, 3, 4]
     classes = range(10)
