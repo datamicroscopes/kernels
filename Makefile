@@ -10,6 +10,7 @@ MICROSCOPES_IRM_REPO ?= $(TOP)/../irm
 
 # set the CXXFLAGS
 CXXFLAGS := -fPIC -g -MD -Wall -std=c++0x -I$(TOP)/include
+CXXFLAGS += -Wno-deprecated-register
 CXXFLAGS += -I$(MICROSCOPES_COMMON_REPO)/include
 CXXFLAGS += -I$(MICROSCOPES_MIXTUREMODEL_REPO)/include
 CXXFLAGS += -I$(MICROSCOPES_IRM_REPO)/include
