@@ -60,6 +60,7 @@ void
 gibbs::assign_resample(entity_based_state_object &s, size_t m, rng_t &rng)
 {
   AssertAllAssigned(s);
+  MICROSCOPES_ASSERT(m > 0);
   for (auto i : util::permute(s.nentities(), rng)) {
     s.remove_value(i, rng);
 
@@ -67,8 +68,10 @@ gibbs::assign_resample(entity_based_state_object &s, size_t m, rng_t &rng)
     for (auto g : s.empty_groups())
       s.delete_group(g);
 
+    MICROSCOPES_ASSERT(s.empty_groups().size() == 0);
+
     // create m new groups
-    for (size_t i = 0; i < m; i++)
+    for (size_t g = 0; g < m; g++)
       s.create_group(rng);
 
     MICROSCOPES_ASSERT(s.empty_groups().size() == m);

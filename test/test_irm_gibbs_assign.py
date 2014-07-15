@@ -146,6 +146,116 @@ def test_compare_to_mixture_model():
     for a, b in zip(y0, y1):
         assert_almost_equals(a, b, places=2)
 
+#@attr('wip')
+#def test_compare_to_mixture_model_1():
+#
+#    r = rng()
+#
+#    N, D = 3, 5
+#
+#    Y = np.random.uniform(size=(N,D)) > 0.8
+#    Y_rec = np.array([tuple(y) for y in Y], dtype=[('',bool)]*D)
+#
+#    mm_view = rec_numpy_dataview(Y_rec)
+#
+#    irm_view = spnd_numpy_dataview(Y)
+#
+#    mm_s = mm_state(N, [bbnc]*D)
+#    irm_s = irm_state([N, D], [((0,1),bbnc)])
+#
+#    def init_mm(s):
+#        s.set_cluster_hp({'alpha':2.})
+#        for i in xrange(D):
+#            s.set_feature_hp(i, {'alpha':1.,'beta':1.})
+#        return s
+#
+#    def init_irm(s):
+#        s.set_domain_hp(0, {'alpha':2.})
+#        s.set_relation_hp(0, {'alpha':1.,'beta':1.})
+#        return s
+#
+#    init_mm(mm_s)
+#    init_irm(irm_s)
+#
+#    def posterior_mm(assignments):
+#        brute = init_mm(mm_state(N, [bb]*D))
+#        mm_fill(brute, cluster(Y_rec, assignments), r)
+#        assign = brute.score_assignment()
+#        likelihood = brute.score_data(None, None, r)
+#        return assign + likelihood
+#
+#    def posterior_irm(assignments):
+#        brute = init_irm(irm_state([N, D], [((0,1),bb)]))
+#        irm_fill(brute, [_assign_to_clustering(assignments), [[i] for i in xrange(D)]], [irm_view], r)
+#        assign = brute.score_assignment(0)
+#        likelihood = brute.score_likelihood(r)
+#        return assign + likelihood
+#
+#    mm_actual_scores = np.array(map(posterior_mm, permutation_iter(N)))
+#    mm_actual_scores -= logsumexp(mm_actual_scores)
+#    mm_actual_scores = np.exp(mm_actual_scores)
+#
+#    irm_actual_scores = np.array(map(posterior_irm, permutation_iter(N)))
+#    irm_actual_scores -= logsumexp(irm_actual_scores)
+#    irm_actual_scores = np.exp(irm_actual_scores)
+#
+#    assert_almost_equals(np.abs(mm_actual_scores - irm_actual_scores).max(), 0, places=5)
+#    print 'actual_scores', mm_actual_scores
+#
+#    perms = list(permutation_iter(N))
+#    assignment = perms[np.random.randint(0, len(perms))]
+#    idmap = { C : i for i, C in enumerate(permutation_iter(N)) }
+#
+#    print 'number of initial groups:', len(set(assignment))
+#
+#    mm_fill(mm_s, cluster(Y_rec, assignment), r)
+#    irm_fill(irm_s, [_assign_to_clustering(assignment), [[i] for i in xrange(D)]], [irm_view], r)
+#
+#    bound_mm_s = mm_bind(mm_s, mm_view)
+#    bound_irm_s_d0 = irm_bind(irm_s, 0, [irm_view])
+#
+#    def mkparam():
+#        return {'p':0.05}
+#    params = { 0 : mkparam() }
+#    def kernel(s, r):
+#        assign_resample(s, 10, r)
+#        #theta(s, params, r)
+#
+#    smoothing = 1e-5
+#    mm_scores = np.zeros(len(perms)) + smoothing
+#    irm_scores = np.zeros(len(perms)) + smoothing
+#
+#    nsamples = 1000
+#    skip = 10
+#
+#    #nsamples, skip = 1, 1
+#
+#    print 'invocations:', bbnc_create_feature_group_invocations()
+#
+#    for _ in xrange(nsamples):
+#        for _ in xrange(skip):
+#            kernel(bound_mm_s, r)
+#        mm_scores[idmap[tuple(permutation_canonical(bound_mm_s.assignments()))]] += 1
+#
+#    print 'invocations:', bbnc_create_feature_group_invocations()
+#
+#    for _ in xrange(nsamples):
+#        for _ in xrange(skip):
+#            kernel(bound_irm_s_d0, r)
+#        irm_scores[idmap[tuple(permutation_canonical(bound_irm_s_d0.assignments()))]] += 1
+#
+#    print 'invocations:', bbnc_create_feature_group_invocations()
+#
+#    mm_scores /= mm_scores.sum()
+#    irm_scores /= irm_scores.sum()
+#    kldiv = KL_discrete(mm_scores, irm_scores)
+#    print 'mm:', mm_scores
+#    print 'irm:', irm_scores
+#    print 'kl(mm, irm):', kldiv
+#    print 'kl(mm, actual):', KL_discrete(mm_scores, mm_actual_scores)
+#    print 'kl(irm, actual):', KL_discrete(irm_scores, mm_actual_scores)
+
+
 def _test_convergence(domains, data, reg_relations, brute_relations, kernel,
                       burnin_niters=10000,
                       nsamples=1000,
@@ -226,6 +336,17 @@ def test_one_binary():
             mask=np.random.choice([False, True], size=(domains[0], domains[0]))))]
     _test_convergence(domains, data, mk_relations(bb), mk_relations(bb), assign)
 
+def test_one_binary_nonconj_kernel():
+    # 1 domain, 1 binary relation
+    domains = [4]
+    def mk_relations(model): return [((0,0), model)]
+    data = [spnd_numpy_dataview(
+        ma.array(
+            np.random.choice([False, True], size=(domains[0], domains[0])),
+            mask=np.random.choice([False, True], size=(domains[0], domains[0]))))]
+    kernel = lambda s, r: assign_resample(s, 10, r)
+    _test_convergence(domains, data, mk_relations(bb), mk_relations(bb), kernel)
+
 def test_two_binary():
     # 1 domain, 2 binary relations
     domains = [4]
@@ -258,7 +379,6 @@ def test_one_binary_one_ternary():
     ]
     _test_convergence(domains, data, mk_relations(bb), mk_relations(bb), assign)
 
-@attr('slow')
 def test_one_binary_nonconj():
     # 1 domain, 1 binary relation, nonconj
     domains = [3]
@@ -271,6 +391,6 @@ def test_one_binary_nonconj():
         return {'p':0.05}
     params = { 0 : mkparam() }
     def kernel(s, r):
-        assign_resample(s, 100, r)
+        assign_resample(s, 10, r)
         theta(s, params, r)
-    _test_convergence(domains, data, mk_relations(bbnc), mk_relations(bb), kernel, burnin_niters=20000)
+    _test_convergence(domains, data, mk_relations(bbnc), mk_relations(bb), kernel)
