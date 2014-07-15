@@ -122,12 +122,11 @@ def _test_convergence_simple(
     # brute force the posterior of the actual model
     if py_brute_models is None:
         py_brute_models = py_models
-    py_brute_s = make_dp(py_state, N, py_brute_models, clusterhp, featurehps)
 
     idmap = { C : i for i, C in enumerate(permutation_iter(N)) }
     # brute force the posterior of the actual model
     def posterior(assignments):
-        py_brute_s.reset()
+        py_brute_s = make_dp(py_state, N, py_brute_models, clusterhp, featurehps)
         data = cluster(Y, assignments)
         fill(py_brute_s, data)
         return py_brute_s.score_joint()
