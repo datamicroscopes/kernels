@@ -41,12 +41,13 @@ struct slice {
       K0--;
     }
 
-    if ((!J0 && J) || (!K0 && K)) {
-      std::cout << "WARNING: slice::interval hit maximum # of expansions" << std::endl
-                << "  Left expansions: " << J0 << ", Right expansions: " << K0 << std::endl
-                << "  x0=" << x0 << ", y=" << y << ", w=" << w << std::endl
-                << "  L=" << L << ", R=" << R << " fn(L)=" << fn(L) << ", fn(R)=" << fn(R) << std::endl;
-    }
+    //if ((!J0 && J) || (!K0 && K)) {
+    //  std::cout << "WARNING: slice::interval hit maximum # of expansions" << std::endl
+    //            << "  Left expansions: " << J0 << ", Right expansions: " << K0 << std::endl
+    //            << "  J=" << J << ", K=" << K << std::endl
+    //            << "  x0=" << x0 << ", y=" << y << ", w=" << w << std::endl
+    //            << "  L=" << L << ", R=" << R << " fn(L)=" << fn(L) << ", fn(R)=" << fn(R) << std::endl;
+    //}
 
     return std::make_pair(L, R);
   }

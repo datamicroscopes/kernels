@@ -23,6 +23,7 @@ import numpy as np
 import numpy.ma as ma
 
 import itertools as it
+import time
 
 from nose.tools import assert_almost_equals
 from nose.plugins.attrib import attr
@@ -178,8 +179,12 @@ def _test_convergence(domains, data, reg_relations, brute_relations, kernel,
     bound_s0 = irm_bind(s, 0, data)
 
     # burnin
-    for _ in xrange(burnin_niters):
+    start = time.time()
+    for i in xrange(burnin_niters):
         kernel(bound_s0, r)
+        if not ((i+1) % 1000):
+            print 'burning finished iteration', (i+1), 'in', (time.time() - start), 'seconds'
+            start = time.time()
 
     print 'finished burnin of', burnin_niters, 'iters'
 
@@ -253,6 +258,7 @@ def test_one_binary_one_ternary():
     ]
     _test_convergence(domains, data, mk_relations(bb), mk_relations(bb), assign)
 
+@attr('slow')
 def test_one_binary_nonconj():
     # 1 domain, 1 binary relation, nonconj
     domains = [3]
@@ -260,11 +266,11 @@ def test_one_binary_nonconj():
     data = [spnd_numpy_dataview(
         ma.array(
             np.random.choice([False, True], size=(domains[0], domains[0])),
-            mask=np.random.choice([False, True], size=(domains[0], domains[0]))))]
+            mask=np.random.random(size=(domains[0], domains[0]))>0.8))]
     def mkparam():
         return {'p':0.05}
     params = { 0 : mkparam() }
     def kernel(s, r):
-        assign_resample(s, 10, r)
+        assign_resample(s, 100, r)
         theta(s, params, r)
     _test_convergence(domains, data, mk_relations(bbnc), mk_relations(bb), kernel, burnin_niters=20000)
