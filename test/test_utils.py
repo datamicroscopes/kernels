@@ -9,6 +9,8 @@ from microscopes.py.common.util import \
         KL_approx, KL_discrete, logsumexp
 from microscopes.py.mixture.model import \
         fill as mixturemodel_fill
+from microscopes.cxx.irm.model import \
+        fill as irm_fill
 from nose.tools import assert_almost_equals
 
 class OurAssertionError(Exception):
@@ -129,6 +131,7 @@ def assert_discrete_dist_approx(sample_fn,
 
             return # success
         except OurAssertionError as ex:
+            print 'warning:', ex._ex.message
             ntries -= 1
             if not ntries:
                 raise ex._ex
@@ -179,6 +182,18 @@ def mixturemodel_cluster(Y, assignments):
     else:
         return tuple(ma.array(np.array(c), mask=m) for c, m in zip(clusters, masks))
 
+def irm_cluster(assignment):
+    """
+    takes an assignment and turns it into a clustering which
+    can be passed as an argument to fill()
+    """
+    k = {}
+    for eid, gid in enumerate(assignment):
+        v = k.get(gid, [])
+        v.append(eid)
+        k[gid] = v
+    return list(k.values())
+
 def dist_on_all_clusterings(score_fn, N):
     """
     Enumerate all possible clusterings of N entities, calling
@@ -204,5 +219,19 @@ def mixturemodel_posterior(factory_fn, Y):
         data = mixturemodel_cluster(Y, assignments)
         mixturemodel_fill(s, data)
         return s.score_joint()
+
+    return dist_on_all_clusterings(score_fn, N)
+
+def irm_single_domain_posterior(factory_fn, data, r):
+    proto = factory_fn()
+    N = proto.nentities(0)
+    assert proto.ndomains() == 1
+
+    def score_fn(assignments):
+        s = factory_fn()
+        irm_fill(s, [irm_cluster(assignments)], data, r)
+        assign = s.score_assignment(0)
+        likelihood = s.score_likelihood(r)
+        return assign + likelihood
 
     return dist_on_all_clusterings(score_fn, N)
