@@ -3,7 +3,12 @@ routines to make writing test cases less painful
 """
 
 import numpy as np
-from microscopes.py.common.util import KL_approx
+import numpy.ma as ma
+import itertools as it
+from microscopes.py.common.util import \
+        KL_approx, KL_discrete, logsumexp
+from microscopes.py.mixture.model import \
+        fill as mixturemodel_fill
 from nose.tools import assert_almost_equals
 
 class OurAssertionError(Exception):
@@ -80,6 +85,124 @@ def assert_1d_cont_dist_approx_sps(sample_fn,
 
             return # success
         except OurAssertionError as ex:
+            print 'warning:', ex._ex.message
             ntries -= 1
             if not ntries:
                 raise ex._ex
+
+def assert_discrete_dist_approx(sample_fn,
+                                dist,
+                                ntries=5,
+                                nsamples=1000,
+                                kl_places=3):
+    """
+    Assert that the distributions of samples from sample_fn
+    approaches the discrete distribution given by dist
+
+    Currently, this is done by checking the KL-divergence
+    (in both directions)
+    """
+
+    assert_almost_equals(dist.sum(), 1.0, places=4)
+
+    if ntries <= 0:
+        raise ValueError("bad ntries: " + ntries)
+
+    smoothing = 1e-5
+    est_hist = np.zeros(len(dist), dtype=np.int)
+    while 1:
+        for _ in xrange(nsamples):
+            est_hist[sample_fn()] += 1
+        try:
+            hist = np.array(est_hist, dtype=np.float)
+            hist += smoothing
+            hist /= hist.sum()
+
+            ab = KL_discrete(hist, dist)
+            ba = KL_discrete(dist, hist)
+
+            print 'KL_discrete(emp, act):', ab
+            print 'KL_discrete(act, emp):', ba
+
+            our_assert_almost_equals(ab, 0., places=kl_places)
+            our_assert_almost_equals(ba, 0., places=kl_places)
+
+            return # success
+        except OurAssertionError as ex:
+            ntries -= 1
+            if not ntries:
+                raise ex._ex
+
+def permutation_canonical(assignments):
+    assignments = np.copy(assignments)
+    lowest = 0
+    for i in xrange(assignments.shape[0]):
+        if assignments[i] < lowest:
+            continue
+        if assignments[i] == lowest:
+            lowest += 1
+            continue
+        temp = assignments[i]
+        idxs = assignments == temp
+        assignments[assignments == lowest] = temp
+        assignments[idxs] = lowest
+        lowest += 1
+    return assignments
+
+def permutation_iter(n):
+    seen = set()
+    for C in it.product(range(n), repeat=n):
+        C = tuple(permutation_canonical(np.array(C)))
+        if C in seen:
+            continue
+        seen.add(C)
+        yield C
+
+def mixturemodel_cluster(Y, assignments):
+    """
+    takes Y, a numpy struct (possibly masked) array, and
+    generates a clustering which can be passed as an argument
+    to fill()
+    """
+    labels = {}
+    for assign in assignments:
+        if assign not in labels:
+            labels[assign] = len(labels)
+    clusters = [[] for _ in xrange(len(labels))]
+    masks = [[] for _ in xrange(len(labels))] if hasattr(Y, 'mask') else None
+    for ci, yi in zip(assignments, Y):
+        clusters[labels[ci]].append(yi)
+        if masks is not None:
+            masks[labels[ci]].append(yi.mask)
+    if masks is None:
+        return tuple(np.array(c) for c in clusters)
+    else:
+        return tuple(ma.array(np.array(c), mask=m) for c, m in zip(clusters, masks))
+
+def dist_on_all_clusterings(score_fn, N):
+    """
+    Enumerate all possible clusterings of N entities, calling
+    score_fn with each assignment.
+
+    The reslting enumeration is then turned into a valid
+    discrete probability distribution
+    """
+    scores = np.array(map(score_fn, permutation_iter(N)))
+    scores -= logsumexp(scores)
+    scores = np.exp(scores)
+    return scores
+
+def mixturemodel_posterior(factory_fn, Y):
+    """
+    Invoking factory_fn should produce a new mixture model
+    state object which is ready to have fill called on it
+    """
+    N = Y.shape[0]
+
+    def score_fn(assignments):
+        s = factory_fn()
+        data = mixturemodel_cluster(Y, assignments)
+        mixturemodel_fill(s, data)
+        return s.score_joint()
+
+    return dist_on_all_clusterings(score_fn, N)

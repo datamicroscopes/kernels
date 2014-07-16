@@ -1,22 +1,25 @@
-from distributions.dbg.models import bb as py_bb, gp as py_gp, nich as py_nich
-
-from microscopes.py.mixture.model import state as py_state, sample, fill, bind as py_bind
-from microscopes.py.common.recarray.dataview import numpy_dataview as py_numpy_dataview
+from distributions.dbg.models import \
+        bb as py_bb, gp as py_gp, nich as py_nich
+from microscopes.py.mixture.model import \
+        state as py_state, sample, fill, bind as py_bind
+from microscopes.py.common.recarray.dataview import \
+        numpy_dataview as py_numpy_dataview
 from microscopes.py.common.util import random_orthonormal_matrix
 from microscopes.py.kernels.gibbs import \
         assign as py_gibbs_assign, \
         assign_resample as py_gibbs_assign_nonconj
 from microscopes.py.kernels.slice import theta as py_slice_theta
-from microscopes.py.kernels.bootstrap import likelihood as py_bootstrap_likelihood
+from microscopes.py.kernels.bootstrap import \
+        likelihood as py_bootstrap_likelihood
 from microscopes.py.models import bbnc as py_bbnc, niw as py_niw
-
 from microscopes.cxx.mixture.model import state as cxx_state, bind as cxx_bind
 from microscopes.cxx.models import bb as cxx_bb, \
         gp as cxx_gp, \
         nich as cxx_nich, \
         bbnc as cxx_bbnc, \
         niw as cxx_niw
-from microscopes.cxx.common.recarray.dataview import numpy_dataview as cxx_numpy_dataview
+from microscopes.cxx.common.recarray.dataview import \
+        numpy_dataview as cxx_numpy_dataview
 from microscopes.cxx.common.rng import rng
 from microscopes.cxx.kernels.bootstrap import likelihood as cxx_likelihood
 from microscopes.cxx.kernels.gibbs import \
@@ -28,6 +31,12 @@ from microscopes.cxx.kernels.bootstrap import likelihood as cxx_bootstrap_likeli
 from microscopes.py.common.util import KL_discrete, logsumexp
 from microscopes.py.models import bbnc
 
+from test_utils import \
+        assert_discrete_dist_approx, \
+        mixturemodel_posterior, \
+        permutation_iter, \
+        permutation_canonical
+
 import itertools as it
 import math
 import numpy as np
@@ -35,188 +44,148 @@ import numpy.ma as ma
 
 from nose.plugins.attrib import attr
 
-def make_dp(ctor, n, models, clusterhp, featurehps):
-    mm = ctor(n, models)
-    mm.set_cluster_hp(clusterhp)
-    for i, hp in enumerate(featurehps):
-        mm.set_feature_hp(i, hp)
+def make_dp(ctor, n, alpha, models):
+    mm = ctor(n, [m[0] for m in models])
+    mm.set_cluster_hp({'alpha':alpha})
+    for i, hp in enumerate(models):
+        mm.set_feature_hp(i, hp[1])
     return mm
 
-def permutation_canonical(assignments):
-    assignments = np.copy(assignments)
-    lowest = 0
-    for i in xrange(assignments.shape[0]):
-        if assignments[i] < lowest:
-            continue
-        if assignments[i] == lowest:
-            lowest += 1
-            continue
-        temp = assignments[i]
-        idxs = assignments == temp
-        assignments[assignments == lowest] = temp
-        assignments[idxs] = lowest
-        lowest += 1
-    return assignments
-
-def permutation_iter(n):
-    seen = set()
-    for C in it.product(range(n), repeat=n):
-        C = tuple(permutation_canonical(np.array(C)))
-        if C in seen:
-            continue
-        seen.add(C)
-        yield C
-
-def cluster(Y, assignments):
-    labels = {}
-    for assign in assignments:
-        if assign not in labels:
-            labels[assign] = len(labels)
-    clusters = [[] for _ in xrange(len(labels))]
-    masks = [[] for _ in xrange(len(labels))] if hasattr(Y, 'mask') else None
-    for ci, yi in zip(assignments, Y):
-        clusters[labels[ci]].append(yi)
-        if masks is not None:
-            masks[labels[ci]].append(yi.mask)
-    if masks is None:
-        return tuple(np.array(c) for c in clusters)
-    else:
-        return tuple(ma.array(np.array(c), mask=m) for c, m in zip(clusters, masks))
-
-def _test_convergence_simple(
-    N,
-    py_models,
-    py_brute_models,
-    cxx_models,
-    clusterhp,
-    featurehps,
-    py_kernel,
-    cxx_kernel,
-    preprocess_data_fn=None,
-    burnin_niters=10000,
-    nsamples=1000,
-    skip=10,
-    attempts=3,
-    threshold=0.01):
-
-    assert len(py_models) == len(cxx_models)
-    assert len(featurehps) == len(py_models)
-
-    # create python version
-    py_s = make_dp(py_state, N, py_models, clusterhp, featurehps)
-
-    # create C++ version
-    cxx_s = make_dp(cxx_state, N, cxx_models, clusterhp, featurehps)
-
-    # sample from generative process
-    Y_clustered, _ = sample(N, py_s)
+def sample_data(n, alpha, models):
+    s = make_dp(py_state, n, alpha, models)
+    Y_clustered, _ = sample(n, s)
     Y = np.hstack(Y_clustered)
-    assert Y.shape[0] == N
+    assert Y.shape[0] == n
+    return Y
 
-    # preprocess the data (e.g. add masks)
+def data_with_posterior(N, D, alpha, models, preprocess_data_fn):
+    factory_fn = lambda: make_dp(py_state, N, alpha, models)
+    Y = sample_data(N, alpha, models)
     if preprocess_data_fn:
         Y = preprocess_data_fn(Y)
+    posterior = mixturemodel_posterior(factory_fn, Y)
+    return Y, posterior
 
-    print 'brute forcing posterior of actual model'
-
-    # brute force the posterior of the actual model
-    if py_brute_models is None:
-        py_brute_models = py_models
-
+def _test_convergence(bs,
+                      posterior,
+                      kernel,
+                      burnin_niters,
+                      skip,
+                      ntries,
+                      nsamples,
+                      kl_places):
+    N = bs.nentities()
+    for _ in xrange(burnin_niters):
+        kernel(bs)
     idmap = { C : i for i, C in enumerate(permutation_iter(N)) }
-    # brute force the posterior of the actual model
-    def posterior(assignments):
-        py_brute_s = make_dp(py_state, N, py_brute_models, clusterhp, featurehps)
-        data = cluster(Y, assignments)
-        fill(py_brute_s, data)
-        return py_brute_s.score_joint()
-    actual_scores = np.array(map(posterior, permutation_iter(N)))
-    actual_scores -= logsumexp(actual_scores)
-    actual_scores = np.exp(actual_scores)
+    def sample_fn():
+        for _ in xrange(skip):
+            kernel(bs)
+        return idmap[tuple(permutation_canonical(bs.assignments()))]
+    assert_discrete_dist_approx(
+            sample_fn, posterior,
+            ntries=ntries, nsamples=nsamples, kl_places=kl_places)
 
-    # setup python version
-    py_view = py_numpy_dataview(Y)
-    py_bootstrap_likelihood(py_s, py_view.view(False))
-    py_bound_s = py_bind(py_s, py_view)
+def _test_convergence_bb_py(N,
+                            D,
+                            kernel,
+                            preprocess_data_fn=None,
+                            nonconj=False,
+                            burnin_niters=10000,
+                            skip=10,
+                            ntries=5,
+                            nsamples=1000,
+                            kl_places=2):
+    alpha = 2.0
+    models = [(py_bb, {'alpha':1.0,'beta':1.0})]*D
+    nonconj_models = [(py_bbnc, {'alpha':1.0,'beta':1.0})]*D
+    Y, posterior = data_with_posterior(N, D, alpha, models, preprocess_data_fn)
+    s = make_dp(py_state, N, alpha, nonconj_models if nonconj else models)
+    view = py_numpy_dataview(Y)
+    py_bootstrap_likelihood(s, view.view(False))
+    bs = py_bind(s, view)
+    _test_convergence(
+        bs,
+        posterior,
+        kernel,
+        burnin_niters,
+        skip,
+        ntries,
+        nsamples,
+        kl_places)
 
-    # setup C++ version
-    cxx_rng = rng(54389)
-    cxx_view = cxx_numpy_dataview(Y)
-    cxx_bootstrap_likelihood(cxx_s, cxx_view.view(False, cxx_rng), cxx_rng)
-    cxx_bound_s = cxx_bind(cxx_s, cxx_view)
+def _test_convergence_bb_cxx(N,
+                             D,
+                             kernel,
+                             preprocess_data_fn=None,
+                             nonconj=False,
+                             burnin_niters=10000,
+                             skip=10,
+                             ntries=5,
+                             nsamples=1000,
+                             kl_places=2):
+    r = rng()
+    alpha = 2.0
+    py_models = [(py_bb, {'alpha':1.0,'beta':1.0})]*D
+    cxx_models = [(cxx_bb, {'alpha':1.0,'beta':1.0})]*D
+    cxx_nonconj_models = [(cxx_bbnc, {'alpha':1.0,'beta':1.0})]*D
+    Y, posterior = data_with_posterior(N, D, alpha, py_models, preprocess_data_fn)
+    s = make_dp(cxx_state, N, alpha, cxx_nonconj_models if nonconj else cxx_models)
+    view = cxx_numpy_dataview(Y)
+    cxx_bootstrap_likelihood(s, view.view(False, r), r)
+    bs = cxx_bind(s, view)
+    wrapped_kernel = lambda s: kernel(s, r)
+    _test_convergence(
+        bs,
+        posterior,
+        wrapped_kernel,
+        burnin_niters,
+        skip,
+        ntries,
+        nsamples,
+        kl_places)
 
-    def test_model(s, kernel, prng):
-        # burnin
-        for _ in xrange(burnin_niters):
-            kernel(s, prng)
+def test_convergence_bb_py():
+    N, D = 4, 5
+    _test_convergence_bb_py(N, D, py_gibbs_assign)
 
-        print 'finished burnin of', burnin_niters, 'iters'
-
-        smoothing = 1e-5
-        gibbs_scores = np.zeros(len(actual_scores)) + smoothing
-
-        outer = attempts
-        last_kl = None
-        while outer > 0:
-            # now grab nsamples samples, every skip iters
-            for _ in xrange(nsamples):
-                for _ in xrange(skip):
-                    kernel(s, prng)
-                gibbs_scores[idmap[tuple(permutation_canonical(s.assignments()))]] += 1
-            gibbs_scores /= gibbs_scores.sum()
-            kldiv = KL_discrete(actual_scores, gibbs_scores)
-            print 'actual:', actual_scores
-            print 'gibbs:', gibbs_scores
-            print 'kl:', kldiv
-            if kldiv <= threshold:
-                return
-            if last_kl is not None and kldiv >= last_kl:
-                print 'WARNING: KL is not making progress!'
-                print 'last KL:', last_kl
-                print 'cur KL:', kldiv
-            last_kl = kldiv
-            outer -= 1
-            print 'WARNING: did not converge, trying', outer, 'more times'
-
-        assert False, 'failed to converge!'
-
-    print 'testing cxx version'
-    test_model(cxx_bound_s, cxx_kernel, cxx_rng)
-
-    print 'testing py version'
-    test_model(py_bound_s, py_kernel, None)
-
-def test_convergence_bb():
-    N = 4
-    D = 5
-    _test_convergence_simple(
-        N=N,
-        py_models=[py_bb]*D,
-        py_brute_models=None,
-        cxx_models=[cxx_bb]*D,
-        clusterhp={'alpha':2.0},
-        featurehps=[{'alpha':1.0,'beta':1.0}]*D,
-        py_kernel=py_gibbs_assign,
-        cxx_kernel=cxx_gibbs_assign)
-
-def test_convergence_bb_missing():
-    N = 4
-    D = 5
+def test_convergence_bb_py_missing():
+    N, D = 4, 5
     def preprocess_fn(Y):
         masks = [tuple(j == (i % len(Y)) for j in xrange(D)) for i in xrange(len(Y))]
         return ma.array(Y, mask=masks)
-    _test_convergence_simple(
-        N=N,
-        py_models=[py_bb]*D,
-        py_brute_models=None,
-        cxx_models=[cxx_bb]*D,
-        clusterhp={'alpha':2.0},
-        featurehps=[{'alpha':1.0,'beta':1.0}]*D,
-        py_kernel=py_gibbs_assign,
-        cxx_kernel=cxx_gibbs_assign,
-        preprocess_data_fn=preprocess_fn)
+    _test_convergence_bb_py(N, D, py_gibbs_assign, preprocess_fn)
+
+def test_convergence_bb_cxx():
+    N, D = 4, 5
+    _test_convergence_bb_cxx(N, D, cxx_gibbs_assign)
+
+def test_convergence_bb_cxx_missing():
+    N, D = 4, 5
+    def preprocess_fn(Y):
+        masks = [tuple(j == (i % len(Y)) for j in xrange(D)) for i in xrange(len(Y))]
+        return ma.array(Y, mask=masks)
+    _test_convergence_bb_cxx(N, D, cxx_gibbs_assign, preprocess_fn)
+
+@attr('slow')
+def test_convergence_bb_nonconj_py():
+    N, D = 3, 5
+    thetaparams = {fi:{'p':0.1} for fi in xrange(D)}
+    def kernel(s):
+        py_gibbs_assign_nonconj(s, 10)
+        py_slice_theta(s, thetaparams)
+    _test_convergence_bb_py(N, D, kernel, preprocess_data_fn=None, nonconj=True)
+
+def test_convergence_bb_nonconj_cxx():
+    N, D = 3, 5
+    thetaparams = {fi:{'p':0.1} for fi in xrange(D)}
+    def kernel(s, r):
+        cxx_gibbs_assign_nonconj(s, 10, r)
+        cxx_slice_theta(s, thetaparams, r)
+    _test_convergence_bb_cxx(N, D, kernel, preprocess_data_fn=None, nonconj=True)
 
 def _test_multivariate_models(ctor, bbmodel, niwmodel, dataview, bootstrap, bind, gibbs_assign, R):
+    # XXX: this test only checks that the operations don't crash
     mu0 = np.ones(3)
     lambda_ = 0.3
     Q = random_orthonormal_matrix(3)
@@ -262,10 +231,19 @@ def test_multivariate_models_cxx():
         cxx_gibbs_assign,
         rng())
 
-def _test_nonconj_inference(ctor, bbncmodel, dataview, bind, assign_nonconj_fn, slice_theta_fn, R, ntries, nsamples, tol):
+def _test_nonconj_inference(ctor,
+                            bbncmodel,
+                            dataview,
+                            bind,
+                            assign_nonconj_fn,
+                            slice_theta_fn,
+                            R,
+                            ntries,
+                            nsamples,
+                            tol):
     N = 1000
     D = 5
-    dpmm = make_dp(ctor, N, [bbncmodel]*D, {'alpha':0.2}, [{'alpha':1.0, 'beta':1.0}]*D)
+    dpmm = make_dp(ctor, N, 0.2, [(bbncmodel, {'alpha':1.0, 'beta':1.0})]*D)
     while True:
         Y_clustered, cluster_samplers = sample(N, dpmm, R)
         if len(Y_clustered) == 2 and max(map(len, Y_clustered)) >= 0.7:
@@ -323,29 +301,4 @@ def test_nonconj_inference_py():
 def test_nonconj_inference_cxx():
     _test_nonconj_inference(
             cxx_state, cxx_bbnc, cxx_numpy_dataview, cxx_bind,
-            cxx_gibbs_assign_nonconj, cxx_slice_theta, rng(), ntries=5, nsamples=1000, tol=0.1)
-
-@attr('slow')
-def test_nonconj_inference_kl():
-    N = 2
-    D = 5
-    def mkparam():
-        return {'p':0.1}
-    thetaparams = { fi : mkparam() for fi in xrange(D) }
-    def kernel(s, R, assign_fn, slice_fn):
-        assign_fn(s, 10, R)
-        slice_fn(s, thetaparams, R)
-    py_kernel = lambda s, R: kernel(s, R, py_gibbs_assign_nonconj, py_slice_theta)
-    cxx_kernel = lambda s, R: kernel(s, R, cxx_gibbs_assign_nonconj, cxx_slice_theta)
-    _test_convergence_simple(
-        N=N,
-        py_models=[py_bbnc]*D,
-        py_brute_models=[py_bb]*D,
-        cxx_models=[cxx_bbnc]*D,
-        clusterhp={'alpha':2.0},
-        featurehps=[{'alpha':1.0,'beta':1.0}]*D,
-        py_kernel=py_kernel,
-        cxx_kernel=cxx_kernel,
-        burnin_niters=100,
-        nsamples=500,
-        threshold=0.05)
+            cxx_gibbs_assign_nonconj, cxx_slice_theta, rng(), ntries=5, nsamples=100, tol=0.2)
