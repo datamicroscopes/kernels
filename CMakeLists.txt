@@ -62,5 +62,5 @@ set(MICROSCOPES_KERNELS_SOURCE_FILES
     src/kernels/gibbs.cpp
     src/kernels/slice.cpp)
 add_library(microscopes_kernels SHARED ${MICROSCOPES_KERNELS_SOURCE_FILES})
-target_link_libraries(microscopes_kernels protobuf distributions_shared microscopes_common)
+target_link_libraries(microscopes_kernels protobuf distributions_shared microscopes_common microscopes_mixturemodel)
 install(TARGETS microscopes_kernels LIBRARY DESTINATION lib)
