@@ -2,8 +2,6 @@
 *.pyc
 .DS_Store
 /config.mk
-/microscopes/**/*.so
-/microscopes/**/*.cpp
 /build
 /out
 *.d

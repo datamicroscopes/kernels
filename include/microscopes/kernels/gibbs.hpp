@@ -10,7 +10,7 @@ namespace microscopes {
 namespace kernels {
 
 struct gibbs {
-  typedef std::vector<std::pair<const models::model *, float>> grid_t;
+  typedef std::vector<std::pair<const models::hypers *, float>> grid_t;
 
   static void
   assign_fixed(common::fixed_entity_based_state_object &s, common::rng_t &rng);

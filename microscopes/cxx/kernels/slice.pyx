@@ -25,7 +25,7 @@ def sample(scalar_function func, float x0, float w, rng r):
 
 def hp(fixed_entity_based_state_object s, dict cparams, dict hparams, rng r):
     assert r
-    cdef vector[slice_hp_param_t] c_cparams 
+    cdef vector[slice_hp_param_t] c_cparams
     cdef vector[slice_hp_t] c_hparams
 
     cdef vector[slice_hp_param_component_t] buf0
@@ -36,10 +36,12 @@ def hp(fixed_entity_based_state_object s, dict cparams, dict hparams, rng r):
         if not hasattr(objs, '__iter__'):
             objs = [objs]
         for param in objs:
-            assert isinstance(param._prior, scalar_function)
+            if not isinstance(param._prior, scalar_function):
+                raise ValueError(
+                    "expected scalar_function, got {}".format(repr(param._prior)))
             buf0.push_back(
                 slice_hp_param_component_t(
-                    0 if param.index() is None else param.index(), 
+                    0 if param.index() is None else param.index(),
                     (<scalar_function>param._prior)._func,
                     param._w))
         c_cparams.push_back(slice_hp_param_t(k, buf0))
@@ -52,10 +54,12 @@ def hp(fixed_entity_based_state_object s, dict cparams, dict hparams, rng r):
             if not hasattr(objs, '__iter__'):
                 objs = [objs]
             for param in objs:
-                assert isinstance(param._prior, scalar_function)
+                if not isinstance(param._prior, scalar_function):
+                    raise ValueError(
+                        "expected scalar_function, got {}".format(repr(param._prior)))
                 buf0.push_back(
                     slice_hp_param_component_t(
-                        0 if param.index() is None else param.index(), 
+                        0 if param.index() is None else param.index(),
                         (<scalar_function>param._prior)._func,
                         param._w))
             buf1.push_back(slice_hp_param_t(k, buf0))
