@@ -3,22 +3,29 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
 project(microscopes_kernels)
 
-set(CMAKE_CXX_FLAGS_BASE "${CMAKE_CXX_FLAGS} -fPIC -g -MD -Wall -std=c++0x")
-# taken from distributions
-set(CMAKE_CXX_FLAGS_MATHOPT "-mfpmath=sse -msse4.1 -ffast-math -funsafe-math-optimizations")
-
-if(APPLE)
-  set(CMAKE_CXX_FLAGS_BASE "${CMAKE_CXX_FLAGS_BASE} -stdlib=libc++")
-  # for anaconda builds
-  set(CMAKE_CXX_FLAGS_BASE "${CMAKE_CXX_FLAGS_BASE} -mmacosx-version-min=10.7")
-  # clang complains about register
-  set(CMAKE_CXX_FLAGS_BASE "${CMAKE_CXX_FLAGS_BASE} -Wno-deprecated-register")
+# default mode is Release
+if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_BASE} -O3 -DNDEBUG ${CMAKE_CXX_FLAGS_MATHOPT}")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_BASE} -O3 -DNDEBUG ${CMAKE_CXX_FLAGS_MATHOPT}")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_BASE} -DDEBUG_MODE")
+set(CMAKE_CXX_FLAGS "-Wall -g -MD -std=c++0x")
+if(APPLE)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+  # for anaconda builds
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mmacosx-version-min=10.7")
+  # clang complains about register
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-register")
+endif()
 
+# taken from distributions
+set(CMAKE_CXX_FLAGS_MATHOPT "-mfpmath=sse -msse4.1 -ffast-math -funsafe-math-optimizations")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG ${CMAKE_CXX_FLAGS_MATHOPT}")
+set(CMAKE_CXX_FLAGS_DEBUG "-DDEBUG_MODE")
+
+# give our include dirs the most precedent
+include_directories(include)
+
+# followed by the EXTRA_* ones
 if(DEFINED EXTRA_INCLUDE_PATH)
   include_directories(${EXTRA_INCLUDE_PATH})
 endif()
@@ -27,9 +34,8 @@ if(DEFINED EXTRA_LIBRARY_PATH)
 endif()
 
 find_package(Protobuf REQUIRED)
-message(STATUS "found protobuf INC=${PROTOBUF_INCLUDE_DIRS}, LIB=${PROTOBUF_LIBRARY_DIRS}")
+message(STATUS "found protobuf INC=${PROTOBUF_INCLUDE_DIRS}, LIB=${PROTOBUF_LIBRARIES}")
 include_directories(${PROTOBUF_INCLUDE_DIRS})
-link_directories(${PROTOBUF_LIBRARY_DIRS})
 
 find_package(Distributions)
 if(DISTRIBUTIONS_FOUND)
@@ -58,7 +64,6 @@ else()
   message(FATAL_ERROR "Could not find microscopes_mixturemodel")
 endif()
 
-include_directories(include)
 install(DIRECTORY include/ DESTINATION include FILES_MATCHING PATTERN "*.h*")
 install(DIRECTORY microscopes DESTINATION cython FILES_MATCHING PATTERN "*.pxd" PATTERN "__init__.py")
 
@@ -67,5 +72,5 @@ set(MICROSCOPES_KERNELS_SOURCE_FILES
     src/kernels/gibbs.cpp
     src/kernels/slice.cpp)
 add_library(microscopes_kernels SHARED ${MICROSCOPES_KERNELS_SOURCE_FILES})
-target_link_libraries(microscopes_kernels protobuf distributions_shared microscopes_common microscopes_mixturemodel)
+target_link_libraries(microscopes_kernels ${PROTOBUF_LIBRARIES} distributions_shared microscopes_common microscopes_mixturemodel)
 install(TARGETS microscopes_kernels LIBRARY DESTINATION lib)
