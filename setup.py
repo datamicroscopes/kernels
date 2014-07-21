@@ -89,8 +89,6 @@ distributions_lib, distributions_inc = find_dependency(
 microscopes_common_lib, microscopes_common_inc = find_dependency(
     'libmicroscopes_common.{}'.format(so_ext), 'microscopes')
 microscopes_common_cython_inc = find_cython_dependency('microscopes')
-microscopes_mixturemodel_lib, microscopes_mixturemodel_inc = find_dependency(
-    'libmicroscopes_mixturemodel.{}'.format(so_ext), 'microscopes')
 microscopes_kernels_lib, microscopes_kernels_inc = find_dependency(
     'libmicroscopes_kernels.{}'.format(so_ext), 'microscopes')
 
@@ -104,10 +102,6 @@ if microscopes_common_cython_inc is not None:
     print 'Using microscopes_common_cython_inc:', microscopes_common_cython_inc
 if microscopes_common_lib is not None:
     print 'Using microscopes_common_lib:', microscopes_common_lib
-if microscopes_mixturemodel_inc is not None:
-    print 'Using microscopes_mixturemodel_inc:', microscopes_mixturemodel_inc
-if microscopes_mixturemodel_lib is not None:
-    print 'Using microscopes_mixturemodel_lib:', microscopes_mixturemodel_lib
 if microscopes_kernels_inc is not None:
     print 'Using microscopes_kernels_inc:', microscopes_kernels_inc
 if microscopes_kernels_lib is not None:
@@ -147,8 +141,6 @@ if distributions_inc is not None:
     include_dirs.append(distributions_inc)
 if microscopes_common_inc is not None:
     include_dirs.append(microscopes_common_inc)
-if microscopes_mixturemodel_inc is not None:
-    include_dirs.append(microscopes_mixturemodel_inc)
 if microscopes_kernels_inc is not None:
     include_dirs.append(microscopes_kernels_inc)
 
@@ -157,8 +149,6 @@ if distributions_lib is not None:
     library_dirs.append(distributions_lib)
 if microscopes_common_lib is not None:
     library_dirs.append(microscopes_common_lib)
-if microscopes_mixturemodel_lib is not None:
-    library_dirs.append(microscopes_mixturemodel_lib)
 if microscopes_kernels_lib is not None:
     library_dirs.append(microscopes_kernels_lib)
 
@@ -173,15 +163,13 @@ def make_extension(module_name):
         sources=sources,
         language="c++",
         include_dirs=include_dirs,
-        libraries=["microscopes_common", "microscopes_mixturemodel",
-                   "microscopes_kernels", "protobuf",
-                   "distributions_shared"],
+        libraries=["microscopes_common", "microscopes_kernels",
+                   "protobuf", "distributions_shared"],
         library_dirs=library_dirs,
         extra_compile_args=extra_compile_args,
         extra_link_args=extra_link_args)
 
 extensions = cythonize([
-    make_extension('microscopes.cxx.kernels.bootstrap'),
     make_extension('microscopes.cxx.kernels.gibbs'),
     make_extension('microscopes.cxx.kernels.slice'),
 ], include_path=[microscopes_common_cython_inc])

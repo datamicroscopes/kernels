@@ -55,22 +55,12 @@ else()
   message(FATAL_ERROR "Could not find microscopes_common")
 endif()
 
-find_package(MicroscopesMixturemodel)
-if(MICROSCOPES_MIXTUREMODEL_FOUND)
-  message(STATUS "found microscopes_mixturemodel INC=${MICROSCOPES_MIXTUREMODEL_INCLUDE_DIRS}, LIB=${MICROSCOPES_MIXTUREMODEL_LIBRARY_DIRS}")
-  include_directories(${MICROSCOPES_MIXTUREMODEL_INCLUDE_DIRS})
-  link_directories(${MICROSCOPES_MIXTUREMODEL_LIBRARY_DIRS})
-else()
-  message(FATAL_ERROR "Could not find microscopes_mixturemodel")
-endif()
-
 install(DIRECTORY include/ DESTINATION include FILES_MATCHING PATTERN "*.h*")
 install(DIRECTORY microscopes DESTINATION cython FILES_MATCHING PATTERN "*.pxd" PATTERN "__init__.py")
 
 set(MICROSCOPES_KERNELS_SOURCE_FILES 
-    src/kernels/bootstrap.cpp
     src/kernels/gibbs.cpp
     src/kernels/slice.cpp)
 add_library(microscopes_kernels SHARED ${MICROSCOPES_KERNELS_SOURCE_FILES})
-target_link_libraries(microscopes_kernels ${PROTOBUF_LIBRARIES} distributions_shared microscopes_common microscopes_mixturemodel)
+target_link_libraries(microscopes_kernels ${PROTOBUF_LIBRARIES} distributions_shared microscopes_common)
 install(TARGETS microscopes_kernels LIBRARY DESTINATION lib)
