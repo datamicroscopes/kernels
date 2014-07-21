@@ -7,10 +7,6 @@ import numpy.ma as ma
 import itertools as it
 from microscopes.py.common.util import \
         KL_approx, KL_discrete, logsumexp
-from microscopes.py.mixture.model import \
-        fill as mixturemodel_fill
-from microscopes.cxx.irm.model import \
-        fill as irm_fill
 from nose.tools import assert_almost_equals
 
 class OurAssertionError(Exception):
@@ -207,25 +203,13 @@ def dist_on_all_clusterings(score_fn, N):
     scores = np.exp(scores)
     return scores
 
-def mixturemodel_posterior(factory_fn, Y):
-    """
-    Invoking factory_fn should produce a new mixture model
-    state object which is ready to have fill called on it
-    """
-    N = Y.shape[0]
-
-    def score_fn(assignments):
-        s = factory_fn()
-        data = mixturemodel_cluster(Y, assignments)
-        mixturemodel_fill(s, data)
-        return s.score_joint()
-
-    return dist_on_all_clusterings(score_fn, N)
-
 def irm_single_domain_posterior(factory_fn, data, r):
     proto = factory_fn()
     N = proto.nentities(0)
     assert proto.ndomains() == 1
+
+    from microscopes.cxx.irm.model import \
+            fill as irm_fill
 
     def score_fn(assignments):
         s = factory_fn()
