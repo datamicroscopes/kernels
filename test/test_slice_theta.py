@@ -1,13 +1,14 @@
 from microscopes.cxx.kernels.slice import theta
-from microscopes.cxx.mixture.model import state as mm_state, bind as mm_bind
-from microscopes.cxx.irm.model import \
-        state as irm_state, bind as irm_bind, fill as irm_fill
+from microscopes.cxx.mixture.model import initialize as mm_initialize, bind as mm_bind
+#from microscopes.cxx.irm.model import \
+#        state as irm_state, bind as irm_bind, fill as irm_fill
 from microscopes.cxx.common.recarray.dataview \
         import numpy_dataview as mm_numpy_dataview
 from microscopes.cxx.common.sparse_ndarray.dataview \
         import numpy_dataview as irm_numpy_dataview
 from microscopes.cxx.common.rng import rng
-from microscopes.cxx.models import bbnc
+from microscopes.models import bbnc
+from microscopes.mixture.definition import model_definition
 
 from microscopes.py.common.util import KL_approx
 from test_utils import assert_1d_cont_dist_approx_sps
@@ -19,15 +20,20 @@ from nose.plugins.attrib import attr
 
 def test_slice_theta_mm():
     N = 100
-    s = mm_state(N, [bbnc])
-    s.set_cluster_hp({'alpha':2.0})
-
-    prior = {'alpha':1.0, 'beta':9.0}
-    s.set_feature_hp(0, prior)
-
     data = np.array(
         [(np.random.random() < 0.8,) for _ in xrange(N)],
         dtype=[('',bool)])
+    defn = model_definition([bbnc])
+    r = rng()
+    prior = {'alpha':1.0, 'beta':9.0}
+    view = mm_numpy_dataview(data)
+    s = mm_initialize(
+        defn,
+        view,
+        cluster_hp={'alpha':1.,'beta':9.},
+        feature_hps=[prior],
+        r=r,
+        assignment=[0]*N)
 
     heads = len([1 for y in data if y[0]])
     tails = N - heads
@@ -35,16 +41,8 @@ def test_slice_theta_mm():
     alpha1 = prior['alpha'] + heads
     beta1 = prior['beta'] + tails
 
-    r = rng()
-    view = mm_numpy_dataview(data)
-
     bs = mm_bind(s, view)
-    bs.create_group(r)
-    for i in xrange(N):
-        bs.add_value(0, i, r)
-
     params = {0:{'p':0.05}}
-
     def sample_fn():
         theta(bs, params, r)
         return s.get_suffstats(0, 0)['p']
