@@ -244,10 +244,12 @@ def test_mnist():
         sec_per_post_pred = sec0 / (float(view.size()) * (float(s.ngroups())))
         print '  time_per_post_pred=', sec_per_post_pred, 'sec'
 
+        return s.score_joint(r)
+
     # burnin
     burnin = 20
     for rid in xrange(burnin):
-        kernel(rid)
+        print 'score:', kernel(rid)
     print 'finished burnin'
     plot_clusters(s, 'mnist_clusters.pdf')
     plot_clusters(s, 'mnist_clusters_bysize.pdf', scalebysize=True)

@@ -159,6 +159,12 @@ def permutation_iter(n):
         seen.add(C)
         yield C
 
+def scores_to_probs(scores):
+    scores = np.array(scores)
+    scores -= logsumexp(scores)
+    scores = np.exp(scores)
+    return scores
+
 def dist_on_all_clusterings(score_fn, N):
     """
     Enumerate all possible clusterings of N entities, calling
@@ -167,7 +173,4 @@ def dist_on_all_clusterings(score_fn, N):
     The reslting enumeration is then turned into a valid
     discrete probability distribution
     """
-    scores = np.array(map(score_fn, permutation_iter(N)))
-    scores -= logsumexp(scores)
-    scores = np.exp(scores)
-    return scores
+    return scores_to_probs(np.array(map(score_fn, permutation_iter(N))))

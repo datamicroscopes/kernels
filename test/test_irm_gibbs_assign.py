@@ -30,6 +30,7 @@ from test_utils import \
         assert_discrete_dist_approx, \
         permutation_iter, \
         permutation_canonical, \
+        scores_to_probs, \
         dist_on_all_clusterings
 
 def test_compare_to_mixture_model():
@@ -97,7 +98,7 @@ def test_compare_to_mixture_model():
     for a, b in zip(y0, y1):
         assert_almost_equals(a, b, places=2)
 
-def _test_convergence(domain_size,
+def _test_convergence(domains,
                       data,
                       reg_relations,
                       brute_relations,
@@ -107,38 +108,44 @@ def _test_convergence(domain_size,
                       skip=10,
                       attempts=5,
                       places=2):
-    """
-    one domain, beta-bernoulli relations only
-    """
     r = rng()
 
-    reg_defn = irm_definition([domain_size], reg_relations)
-    brute_defn = irm_definition([domain_size], brute_relations)
-    def score_fn(assignment):
-        s = irm_initialize(brute_defn, data, r=r, domain_assignments=[assignment])
-        assign = s.score_assignment(0)
+    reg_defn = irm_definition(domains, reg_relations)
+    brute_defn = irm_definition(domains, brute_relations)
+    def score_fn(assignments):
+        s = irm_initialize(
+                brute_defn, data, r=r,
+                domain_assignments=assignments)
+        assign = sum(s.score_assignment(i) for i in xrange(len(assignments)))
         likelihood = s.score_likelihood(r)
         return assign + likelihood
-    posterior = dist_on_all_clusterings(score_fn, domain_size)
+    product_assignments = tuple(map(list, map(permutation_iter, domains)))
+    posterior = scores_to_probs(
+        np.array(map(score_fn, it.product(*product_assignments))))
 
     s = irm_initialize(reg_defn, data, r=r)
-    bound_s0 = irm_bind(s, 0, data)
+    bounded_states = [irm_bind(s, i, data) for i in xrange(len(domains))]
 
     # burnin
     start = time.time()
     for i in xrange(burnin_niters):
-        kernel(bound_s0, r)
+        for bs in bounded_states:
+            kernel(bs, r)
         if not ((i+1) % 1000):
             print 'burning finished iteration', (i+1), 'in', (time.time() - start), 'seconds'
             start = time.time()
 
     print 'finished burnin of', burnin_niters, 'iters'
 
-    idmap = { C : i for i, C in enumerate(permutation_iter(domain_size)) }
+    idmap = { C : i for i, C in enumerate(it.product(*product_assignments)) }
+    #print idmap
     def sample_fn():
         for _ in xrange(skip):
-            kernel(bound_s0, r)
-        return idmap[tuple(permutation_canonical(bound_s0.assignments()))]
+            for bs in bounded_states:
+                kernel(bs, r)
+        key = tuple(tuple(permutation_canonical(bs.assignments())) \
+                for bs in bounded_states)
+        return idmap[key]
 
     assert_discrete_dist_approx(
             sample_fn, posterior,
@@ -153,7 +160,7 @@ def test_one_binary():
         ma.array(
             np.random.choice([False, True], size=(domains[0], domains[0])),
             mask=np.random.choice([False, True], size=(domains[0], domains[0]))))]
-    _test_convergence(domains[0], data, mk_relations(bb), mk_relations(bb), assign)
+    _test_convergence(domains, data, mk_relations(bb), mk_relations(bb), assign)
 
 def test_one_binary_nonconj_kernel():
     # 1 domain, 1 binary relation
@@ -164,7 +171,7 @@ def test_one_binary_nonconj_kernel():
             np.random.choice([False, True], size=(domains[0], domains[0])),
             mask=np.random.choice([False, True], size=(domains[0], domains[0]))))]
     kernel = lambda s, r: assign_resample(s, 10, r)
-    _test_convergence(domains[0], data, mk_relations(bb), mk_relations(bb), kernel)
+    _test_convergence(domains, data, mk_relations(bb), mk_relations(bb), kernel)
 
 def test_two_binary():
     # 1 domain, 2 binary relations
@@ -180,7 +187,7 @@ def test_two_binary():
                 np.random.choice([False, True], size=(domains[0], domains[0])),
                 mask=np.random.choice([False, True], size=(domains[0], domains[0])))),
     ]
-    _test_convergence(domains[0], data, mk_relations(bb), mk_relations(bb), assign)
+    _test_convergence(domains, data, mk_relations(bb), mk_relations(bb), assign)
 
 def test_one_binary_one_ternary():
     # 1 domain, 1 binary, 1 ternary
@@ -196,7 +203,7 @@ def test_one_binary_one_ternary():
                 np.random.choice([False, True], size=(domains[0], domains[0], domains[0])),
                 mask=np.random.choice([False, True], size=(domains[0], domains[0], domains[0])))),
     ]
-    _test_convergence(domains[0], data, mk_relations(bb), mk_relations(bb), assign)
+    _test_convergence(domains, data, mk_relations(bb), mk_relations(bb), assign)
 
 def test_one_binary_nonconj():
     # 1 domain, 1 binary relation, nonconj
@@ -212,4 +219,20 @@ def test_one_binary_nonconj():
     def kernel(s, r):
         assign_resample(s, 10, r)
         theta(s, params, r)
-    _test_convergence(domains[0], data, mk_relations(bbnc), mk_relations(bb), kernel, attempts=10)
+    _test_convergence(domains, data, mk_relations(bbnc), mk_relations(bb), kernel, attempts=10)
+
+def test_two_domain_two_binary():
+    # 1 domain, 2 binary relations
+    domains = [3, 4]
+    def mk_relations(model): return [((0,0), model), ((1,0), model)]
+    data = [
+        spnd_numpy_dataview(
+            ma.array(
+                np.random.choice([False, True], size=(domains[0], domains[0])),
+                mask=np.random.choice([False, True], size=(domains[0], domains[0])))),
+        spnd_numpy_dataview(
+            ma.array(
+                np.random.choice([False, True], size=(domains[1], domains[0])),
+                mask=np.random.choice([False, True], size=(domains[1], domains[0])))),
+    ]
+    _test_convergence(domains, data, mk_relations(bb), mk_relations(bb), assign, attempts=20)
