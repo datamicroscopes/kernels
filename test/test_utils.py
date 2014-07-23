@@ -157,38 +157,38 @@ def permutation_iter(n):
         seen.add(C)
         yield C
 
-def mixturemodel_cluster(Y, assignments):
-    """
-    takes Y, a numpy struct (possibly masked) array, and
-    generates a clustering which can be passed as an argument
-    to fill()
-    """
-    labels = {}
-    for assign in assignments:
-        if assign not in labels:
-            labels[assign] = len(labels)
-    clusters = [[] for _ in xrange(len(labels))]
-    masks = [[] for _ in xrange(len(labels))] if hasattr(Y, 'mask') else None
-    for ci, yi in zip(assignments, Y):
-        clusters[labels[ci]].append(yi)
-        if masks is not None:
-            masks[labels[ci]].append(yi.mask)
-    if masks is None:
-        return tuple(np.array(c) for c in clusters)
-    else:
-        return tuple(ma.array(np.array(c), mask=m) for c, m in zip(clusters, masks))
+#def mixturemodel_cluster(Y, assignments):
+#    """
+#    takes Y, a numpy struct (possibly masked) array, and
+#    generates a clustering which can be passed as an argument
+#    to fill()
+#    """
+#    labels = {}
+#    for assign in assignments:
+#        if assign not in labels:
+#            labels[assign] = len(labels)
+#    clusters = [[] for _ in xrange(len(labels))]
+#    masks = [[] for _ in xrange(len(labels))] if hasattr(Y, 'mask') else None
+#    for ci, yi in zip(assignments, Y):
+#        clusters[labels[ci]].append(yi)
+#        if masks is not None:
+#            masks[labels[ci]].append(yi.mask)
+#    if masks is None:
+#        return tuple(np.array(c) for c in clusters)
+#    else:
+#        return tuple(ma.array(np.array(c), mask=m) for c, m in zip(clusters, masks))
 
-def irm_cluster(assignment):
-    """
-    takes an assignment and turns it into a clustering which
-    can be passed as an argument to fill()
-    """
-    k = {}
-    for eid, gid in enumerate(assignment):
-        v = k.get(gid, [])
-        v.append(eid)
-        k[gid] = v
-    return list(k.values())
+#def irm_cluster(assignment):
+#    """
+#    takes an assignment and turns it into a clustering which
+#    can be passed as an argument to fill()
+#    """
+#    k = {}
+#    for eid, gid in enumerate(assignment):
+#        v = k.get(gid, [])
+#        v.append(eid)
+#        k[gid] = v
+#    return list(k.values())
 
 def dist_on_all_clusterings(score_fn, N):
     """
@@ -203,19 +203,19 @@ def dist_on_all_clusterings(score_fn, N):
     scores = np.exp(scores)
     return scores
 
-def irm_single_domain_posterior(factory_fn, data, r):
-    proto = factory_fn()
-    N = proto.nentities(0)
-    assert proto.ndomains() == 1
-
-    from microscopes.cxx.irm.model import \
-            fill as irm_fill
-
-    def score_fn(assignments):
-        s = factory_fn()
-        irm_fill(s, [irm_cluster(assignments)], data, r)
-        assign = s.score_assignment(0)
-        likelihood = s.score_likelihood(r)
-        return assign + likelihood
-
-    return dist_on_all_clusterings(score_fn, N)
+#def irm_single_domain_posterior(factory_fn, data, r):
+#    proto = factory_fn()
+#    N = proto.nentities(0)
+#    assert proto.ndomains() == 1
+#
+#    from microscopes.cxx.irm.model import \
+#            fill as irm_fill
+#
+#    def score_fn(assignments):
+#        s = factory_fn()
+#        irm_fill(s, [irm_cluster(assignments)], data, r)
+#        assign = s.score_assignment(0)
+#        likelihood = s.score_likelihood(r)
+#        return assign + likelihood
+#
+#    return dist_on_all_clusterings(score_fn, N)

@@ -63,7 +63,7 @@ def _make_one_feature_bb_mm(initialize_fn, dataview, Nk, K, alpha, beta, r):
     Y_clustered = tuple(map(gen_cluster, samplers))
     Y, assignment = data_with_assignment(Y_clustered)
     view = dataview(Y)
-    s = initialize_fn(model_definition([bb]),
+    s = initialize_fn(model_definition(Y.shape[0], [bb]),
                       view,
                       cluster_hp={'alpha':2.},
                       feature_hps=[{'alpha':alpha,'beta':beta}],

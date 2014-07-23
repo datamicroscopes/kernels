@@ -23,7 +23,7 @@ def test_slice_theta_mm():
     data = np.array(
         [(np.random.random() < 0.8,) for _ in xrange(N)],
         dtype=[('',bool)])
-    defn = model_definition([bbnc])
+    defn = model_definition(N, [bbnc])
     r = rng()
     prior = {'alpha':1.0, 'beta':9.0}
     view = mm_numpy_dataview(data)

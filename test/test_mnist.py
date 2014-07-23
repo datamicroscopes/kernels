@@ -1,12 +1,12 @@
 from microscopes.cxx.common.recarray.dataview import numpy_dataview
 from microscopes.cxx.common.rng import rng
 from microscopes.cxx.common.scalar_functions import log_exponential
-from microscopes.cxx.models import bb, dd
-from microscopes.cxx.mixture.model import state, bind
+from microscopes.cxx.mixture.model import initialize, bind
 from microscopes.cxx.kernels.gibbs import assign
 from microscopes.cxx.kernels.slice import hp
-from microscopes.cxx.kernels.bootstrap import likelihood
 from microscopes.py.kernels.slice import scalar_param, vector_param
+from microscopes.models import bb, dd
+from microscopes.mixture.definition import model_definition
 
 from sklearn.datasets import fetch_mldata
 from sklearn.cross_validation import train_test_split
@@ -23,12 +23,12 @@ from PIL import Image, ImageOps
 def _get_mnist_dataset():
     return fetch_mldata('MNIST original')
 
-def make_dp(n, models, clusterhp, featurehps):
-    s = state(n, models)
-    s.set_cluster_hp(clusterhp)
-    for i, hp in enumerate(featurehps):
-        s.set_feature_hp(i, hp)
-    return s
+#def make_dp(n, models, clusterhp, featurehps):
+#    s = state(n, models)
+#    s.set_cluster_hp(clusterhp)
+#    for i, hp in enumerate(featurehps):
+#        s.set_feature_hp(i, hp)
+#    return s
 
 def groupcounts(s):
     counts = np.zeros(s.ngroups(), dtype=np.int)
@@ -72,11 +72,15 @@ def test_mnist_supervised():
     print 'image dimension is', (D-1), 'pixels'
 
     view = numpy_dataview(Y_train)
-    s = make_dp(n, [bb]*(D-1) + [dd], {'alpha':0.2}, [{'alpha':1.,'beta':1.}]*(D-1) + [{'alphas':[1. for _ in classes]}])
-    bound_s = bind(s, view)
-
+    defn = model_definition(n, [bb]*(D-1) + [dd])
     r = rng()
-    likelihood(s, view.view(False, r), r)
+    s = initialize(defn,
+                   view,
+                   cluster_hp={'alpha':0.2},
+                   feature_hps=[{'alpha':1.,'beta':1.}]*(D-1) + [{'alphas':[1. for _ in classes]}],
+                   r=r)
+
+    bound_s = bind(s, view)
 
     indiv_prior_fn = log_exponential(1.2)
     hparams = {
@@ -155,11 +159,15 @@ def test_mnist():
     Y = np.array([tuple(y) for y in Y[np.random.permutation(np.arange(Y.shape[0]))]], dtype=dtype)
 
     view = numpy_dataview(Y)
-    s = make_dp(Y.shape[0], [bb]*D, {'alpha':0.2}, [{'alpha':1.,'beta':1.}]*D)
-    bound_s = bind(s, view)
-
+    defn = model_definition(Y.shape[0], [bb]*D)
     r = rng()
-    likelihood(s, view.view(False, r), r)
+    s = initialize(
+        defn,
+        view,
+        cluster_hp={'alpha':0.2},
+        feature_hps=[{'alpha':1.,'beta':1.}]*D,
+        r=r)
+    bound_s = bind(s, view)
 
     indiv_prior_fn = log_exponential(1.2)
     hparams = {

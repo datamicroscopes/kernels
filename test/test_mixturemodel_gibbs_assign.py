@@ -89,8 +89,8 @@ def _test_convergence_bb_py(N,
                             kl_places=2):
     cluster_hp = {'alpha':2.0}
     feature_hps = [{'alpha':1.0,'beta':1.0}]*D
-    defn = model_definition([bb]*D)
-    nonconj_defn = model_definition([bbnc]*D)
+    defn = model_definition(N, [bb]*D)
+    nonconj_defn = model_definition(N, [bbnc]*D)
     Y, posterior = data_with_posterior(
         N, defn, cluster_hp, feature_hps, preprocess_data_fn)
     data = py_numpy_dataview(Y)
@@ -121,8 +121,8 @@ def _test_convergence_bb_cxx(N,
     r = rng()
     cluster_hp = {'alpha':2.0}
     feature_hps = [{'alpha':1.0,'beta':1.0}]*D
-    defn = model_definition([bb]*D)
-    nonconj_defn = model_definition([bbnc]*D)
+    defn = model_definition(N, [bb]*D)
+    nonconj_defn = model_definition(N, [bbnc]*D)
     Y, posterior = data_with_posterior(
         N, defn, cluster_hp, feature_hps, preprocess_data_fn)
     data = cxx_numpy_dataview(Y)
@@ -201,7 +201,7 @@ def _test_multivariate_models(initialize_fn,
     X = np.array([genrow() for _ in xrange(N)], dtype=[('',bool),('',float,(3,))])
     view = dataview(X)
 
-    defn = model_definition([bb, niw(3)])
+    defn = model_definition(N, [bb, niw(3)])
     s = initialize_fn(
         defn,
         view,
@@ -242,7 +242,7 @@ def _test_nonconj_inference(initialize_fn,
                             nsamples,
                             tol):
     N, D = 1000, 5
-    defn = model_definition([bbnc]*D)
+    defn = model_definition(N, [bbnc]*D)
     cluster_hp = {'alpha':0.2}
     feature_hps = [{'alpha':1.0, 'beta':1.0}]*D
 

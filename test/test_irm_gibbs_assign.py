@@ -1,19 +1,18 @@
+from microscopes.irm.definition import model_definition as irm_definition
 from microscopes.cxx.irm.model import \
-        state as irm_state, \
-        bind as irm_bind , \
-        fill as irm_fill, \
-        random_initialize as irm_random_initialize
+        initialize as irm_initialize, \
+        bind as irm_bind
+from microscopes.mixture.definition import model_definition as mm_definition
 from microscopes.cxx.mixture.model import \
-        state as mm_state, \
+        initialize as mm_initialize, \
         bind as mm_bind
-from microscopes.py.mixture.model import fill as mm_fill
 from microscopes.cxx.common.rng import rng
 from microscopes.cxx.common.sparse_ndarray.dataview import \
         numpy_dataview as spnd_numpy_dataview
 from microscopes.cxx.common.recarray.dataview import \
         numpy_dataview as rec_numpy_dataview
 
-from microscopes.cxx.models import bb, bbnc
+from microscopes.models import bb, bbnc
 from microscopes.cxx.kernels.gibbs import assign, assign_resample
 from microscopes.cxx.kernels.slice import theta
 
@@ -29,11 +28,9 @@ from nose.tools import assert_almost_equals
 from nose.plugins.attrib import attr
 from test_utils import \
         assert_discrete_dist_approx, \
-        irm_single_domain_posterior, \
         permutation_iter, \
         permutation_canonical, \
-        mixturemodel_cluster, \
-        irm_cluster
+        dist_on_all_clusterings
 
 def test_compare_to_mixture_model():
     r = rng()
@@ -44,23 +41,22 @@ def test_compare_to_mixture_model():
     Y_rec = np.array([tuple(y) for y in Y], dtype=[('',bool)]*D)
 
     mm_view = rec_numpy_dataview(Y_rec)
-
     irm_view = spnd_numpy_dataview(Y)
 
-    mm_s = mm_state(N, [bb]*D)
-    irm_s = irm_state([N, D], [((0,1),bb)])
-
-    mm_s.set_cluster_hp({'alpha':2.})
-    for i in xrange(D):
-        mm_s.set_feature_hp(i, {'alpha':1.,'beta':1.})
-    irm_s.set_domain_hp(0, {'alpha':2.})
-    irm_s.set_relation_hp(0, {'alpha':1.,'beta':1.})
+    mm_def = mm_definition(N, [bb]*D)
+    irm_def = irm_definition([N, D], [((0,1),bb)])
 
     perms = list(permutation_iter(N))
     assignment = perms[np.random.randint(0, len(perms))]
 
-    mm_fill(mm_s, mixturemodel_cluster(Y_rec, assignment), r)
-    irm_fill(irm_s, [irm_cluster(assignment), [[i] for i in xrange(D)]], [irm_view], r)
+    mm_s = mm_initialize(mm_def, mm_view, r=r, assignment=assignment)
+    irm_s = irm_initialize(irm_def,
+                           [irm_view],
+                           r=r,
+                           domain_assignments=[
+                               assignment,
+                               range(D),
+                           ])
 
     def assert_suff_stats_equal():
         assert set(mm_s.groups()) == set(irm_s.groups(0))
@@ -116,17 +112,16 @@ def _test_convergence(domain_size,
     """
     r = rng()
 
-    def mk(relations):
-        s = irm_state([domain_size], relations)
-        s.set_domain_hp(0, {'alpha':2.0})
-        for r in xrange(len(relations)):
-            s.set_relation_hp(r, {'alpha':1., 'beta':1.})
-        return s
+    reg_defn = irm_definition([domain_size], reg_relations)
+    brute_defn = irm_definition([domain_size], brute_relations)
+    def score_fn(assignment):
+        s = irm_initialize(brute_defn, data, r=r, domain_assignments=[assignment])
+        assign = s.score_assignment(0)
+        likelihood = s.score_likelihood(r)
+        return assign + likelihood
+    posterior = dist_on_all_clusterings(score_fn, domain_size)
 
-    posterior = irm_single_domain_posterior(lambda: mk(brute_relations), data, r)
-
-    s = mk(reg_relations)
-    irm_random_initialize(s, data, r)
+    s = irm_initialize(reg_defn, data, r=r)
     bound_s0 = irm_bind(s, 0, data)
 
     # burnin
