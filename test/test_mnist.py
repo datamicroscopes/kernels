@@ -136,7 +136,7 @@ def test_mnist_supervised():
     #plt.plot(fpr, tpr)
     #plt.show()
 
-@attr('wip')
+@attr('slow')
 def test_mnist():
     import matplotlib.pylab as plt
     mnist_dataset = _get_mnist_dataset()
