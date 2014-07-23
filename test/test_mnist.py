@@ -23,13 +23,6 @@ from PIL import Image, ImageOps
 def _get_mnist_dataset():
     return fetch_mldata('MNIST original')
 
-#def make_dp(n, models, clusterhp, featurehps):
-#    s = state(n, models)
-#    s.set_cluster_hp(clusterhp)
-#    for i, hp in enumerate(featurehps):
-#        s.set_feature_hp(i, hp)
-#    return s
-
 def groupcounts(s):
     counts = np.zeros(s.ngroups(), dtype=np.int)
     for i, gid in enumerate(s.groups()):
@@ -72,7 +65,7 @@ def test_mnist_supervised():
     print 'image dimension is', (D-1), 'pixels'
 
     view = numpy_dataview(Y_train)
-    defn = model_definition(n, [bb]*(D-1) + [dd])
+    defn = model_definition(n, [bb]*(D-1) + [dd(len(classes))])
     r = rng()
     s = initialize(defn,
                    view,
@@ -143,7 +136,7 @@ def test_mnist_supervised():
     #plt.plot(fpr, tpr)
     #plt.show()
 
-@attr('slow')
+@attr('wip')
 def test_mnist():
     import matplotlib.pylab as plt
     mnist_dataset = _get_mnist_dataset()
@@ -181,7 +174,7 @@ def test_mnist():
         def prior_prob(hp):
             return hp['alpha'] / (hp['alpha'] + hp['beta'])
         def data_for_group(gid):
-            suffstats = [s.get_suff_stats(gid, i) for i in xrange(D)]
+            suffstats = [s.get_suffstats(gid, i) for i in xrange(D)]
             def prob(hp, ss):
                 top = hp['alpha'] + ss['heads']
                 bot = top + hp['beta'] + ss['tails']
@@ -252,7 +245,7 @@ def test_mnist():
         print '  time_per_post_pred=', sec_per_post_pred, 'sec'
 
     # burnin
-    burnin = 50
+    burnin = 20
     for rid in xrange(burnin):
         kernel(rid)
     print 'finished burnin'
