@@ -1,14 +1,18 @@
 from microscopes.cxx.kernels.slice import theta
-from microscopes.cxx.mixture.model import initialize as mm_initialize, bind as mm_bind
-#from microscopes.cxx.irm.model import \
-#        state as irm_state, bind as irm_bind, fill as irm_fill
-from microscopes.cxx.common.recarray.dataview \
-        import numpy_dataview as mm_numpy_dataview
-from microscopes.cxx.common.sparse_ndarray.dataview \
-        import numpy_dataview as irm_numpy_dataview
+from microscopes.cxx.mixture.model import \
+        initialize as mm_initialize, bind as mm_bind
+from microscopes.cxx.irm.model import \
+        initialize as irm_initialize, bind as irm_bind
+from microscopes.cxx.common.recarray.dataview import \
+        numpy_dataview as mm_numpy_dataview
+from microscopes.cxx.common.sparse_ndarray.dataview import \
+        numpy_dataview as irm_numpy_dataview
 from microscopes.cxx.common.rng import rng
 from microscopes.models import bbnc
-from microscopes.mixture.definition import model_definition
+from microscopes.mixture.definition import \
+        model_definition as mm_model_definition
+from microscopes.irm.definition import \
+        model_definition as irm_model_definition
 
 from microscopes.py.common.util import KL_approx
 from test_utils import assert_1d_cont_dist_approx_sps
@@ -23,7 +27,7 @@ def test_slice_theta_mm():
     data = np.array(
         [(np.random.random() < 0.8,) for _ in xrange(N)],
         dtype=[('',bool)])
-    defn = model_definition(N, [bbnc])
+    defn = mm_model_definition(N, [bbnc])
     r = rng()
     prior = {'alpha':1.0, 'beta':9.0}
     view = mm_numpy_dataview(data)
@@ -52,16 +56,20 @@ def test_slice_theta_mm():
 
 def test_slice_theta_irm():
     N = 10
-    s = irm_state([N], [((0,0), bbnc)])
-    s.set_domain_hp(0, {'alpha':2.0})
-    prior = {'alpha':1.0, 'beta':9.0}
-    s.set_relation_hp(0, prior)
-    r = rng()
-
+    defn = irm_model_definition([N], [((0,0), bbnc)])
     data = np.random.random(size=(N,N)) < 0.8
     view = irm_numpy_dataview(data)
+    r = rng()
+    prior = {'alpha':1.0, 'beta':9.0}
 
-    irm_fill(s, [[range(N)]], [view], r)
+    s = irm_initialize(
+            defn,
+            [view],
+            r=r,
+            cluster_hps=[{'alpha':2.0}],
+            relation_hps=[prior],
+            domain_assignments=[[0]*N])
+
     bs = irm_bind(s, 0, [view])
 
     params = {0:{'p':0.05}}
