@@ -33,6 +33,7 @@ import itertools as it
 import math
 import numpy as np
 import numpy.ma as ma
+import time
 
 from nose.plugins.attrib import attr
 
@@ -45,8 +46,14 @@ def _test_convergence(bs,
                       nsamples,
                       kl_places):
     N = bs.nentities()
-    for _ in xrange(burnin_niters):
+    start = time.time()
+    last = start
+    for i in xrange(burnin_niters):
         kernel(bs)
+        if not ((i+1) % 1000):
+            print 'burning finished iteration', (i+1), 'in', (time.time() - last), 'seconds'
+            last = time.time()
+    print 'finished burnin of', burnin_niters, 'iters in', (time.time() - start) , 'seconds'
     idmap = { C : i for i, C in enumerate(permutation_iter(N)) }
     def sample_fn():
         for _ in xrange(skip):
@@ -84,7 +91,7 @@ def _test_convergence_bb_py(N,
                             nonconj=False,
                             burnin_niters=10000,
                             skip=10,
-                            ntries=10,
+                            ntries=50,
                             nsamples=1000,
                             kl_places=2):
     cluster_hp = {'alpha':2.0}
@@ -115,7 +122,7 @@ def _test_convergence_bb_cxx(N,
                              nonconj=False,
                              burnin_niters=10000,
                              skip=10,
-                             ntries=10,
+                             ntries=50,
                              nsamples=1000,
                              kl_places=2):
     r = rng()
@@ -301,11 +308,11 @@ def test_nonconj_inference_py():
     _test_nonconj_inference(
             py_initialize, py_numpy_dataview, py_bind,
             py_gibbs_assign_nonconj, py_slice_theta, R=None,
-            ntries=10, nsamples=100, tol=0.2)
+            ntries=50, nsamples=100, tol=0.2)
 
 @attr('slow')
 def test_nonconj_inference_cxx():
     _test_nonconj_inference(
             cxx_initialize, cxx_numpy_dataview, cxx_bind,
             cxx_gibbs_assign_nonconj, cxx_slice_theta, R=rng(),
-            ntries=10, nsamples=100, tol=0.2)
+            ntries=50, nsamples=100, tol=0.2)

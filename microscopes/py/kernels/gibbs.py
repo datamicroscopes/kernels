@@ -43,13 +43,20 @@ def assign(s, rng=None):
             empty_gid = s.create_group(rng)
 
 def assign_resample(s, nonempty, rng=None):
-    assert nonempty >= 1
+    if nonempty <= 0:
+        raise ValueError("nonempty needs to be >= 1")
     for ei in np.random.permutation(s.nentities()):
-        s.remove_value(ei, rng)
-        for gid in list(s.empty_groups()):
-            s.delete_group(gid)
-        for _ in xrange(nonempty):
+        gid = s.remove_value(ei, rng)
+        match = False
+        for g in list(s.empty_groups()):
+            if gid == g:
+                match = True
+                continue
+            s.delete_group(g)
+        assert len(s.empty_groups()) in (0, 1)
+        for _ in xrange(nonempty - (1 if match else 0)):
             s.create_group(rng)
+        assert len(s.empty_groups()) == m
         idmap, scores = s.score_value(ei, rng)
         gid = idmap[sample_discrete_log(scores)]
         s.add_value(gid, ei, rng)

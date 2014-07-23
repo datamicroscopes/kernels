@@ -104,9 +104,9 @@ def _test_convergence(domains,
                       brute_relations,
                       kernel,
                       burnin_niters=10000,
-                      nsamples=1000,
                       skip=10,
-                      attempts=5,
+                      ntries=50,
+                      nsamples=1000,
                       places=2):
     r = rng()
 
@@ -128,14 +128,14 @@ def _test_convergence(domains,
 
     # burnin
     start = time.time()
+    last = start
     for i in xrange(burnin_niters):
         for bs in bounded_states:
             kernel(bs, r)
         if not ((i+1) % 1000):
-            print 'burning finished iteration', (i+1), 'in', (time.time() - start), 'seconds'
-            start = time.time()
-
-    print 'finished burnin of', burnin_niters, 'iters'
+            print 'burning finished iteration', (i+1), 'in', (time.time() - last), 'seconds'
+            last = time.time()
+    print 'finished burnin of', burnin_niters, 'iters in', (time.time() - start) , 'seconds'
 
     idmap = { C : i for i, C in enumerate(it.product(*product_assignments)) }
     #print idmap
@@ -149,7 +149,7 @@ def _test_convergence(domains,
 
     assert_discrete_dist_approx(
             sample_fn, posterior,
-            ntries=attempts, nsamples=nsamples,
+            ntries=ntries, nsamples=nsamples,
             kl_places=places)
 
 def test_one_binary():
@@ -219,7 +219,7 @@ def test_one_binary_nonconj():
     def kernel(s, r):
         assign_resample(s, 10, r)
         theta(s, params, r)
-    _test_convergence(domains, data, mk_relations(bbnc), mk_relations(bb), kernel, attempts=10)
+    _test_convergence(domains, data, mk_relations(bbnc), mk_relations(bb), kernel)
 
 def test_two_domain_two_binary():
     # 1 domain, 2 binary relations
@@ -235,4 +235,4 @@ def test_two_domain_two_binary():
                 np.random.choice([False, True], size=(domains[1], domains[0])),
                 mask=np.random.choice([False, True], size=(domains[1], domains[0])))),
     ]
-    _test_convergence(domains, data, mk_relations(bb), mk_relations(bb), assign, attempts=20)
+    _test_convergence(domains, data, mk_relations(bb), mk_relations(bb), assign)
