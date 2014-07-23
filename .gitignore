@@ -3,7 +3,8 @@
 .DS_Store
 /config.mk
 /build
-/out
+/debug
+/release
 *.d
 *.prog
 *.dSYM
