@@ -62,7 +62,7 @@ def data_with_assignment(Y_clusters):
     return np.hstack(Y_clusters), list(assignments)
 
 def data_with_posterior(N, defn, cluster_hp, feature_hps, preprocess_data_fn):
-    Y_clusters, _ = sample(N, defn, cluster_hp, feature_hps)
+    Y_clusters, _ = sample(defn, cluster_hp, feature_hps)
     Y = np.hstack(Y_clusters)
     if preprocess_data_fn:
         Y = preprocess_data_fn(Y)
@@ -84,7 +84,7 @@ def _test_convergence_bb_py(N,
                             nonconj=False,
                             burnin_niters=10000,
                             skip=10,
-                            ntries=5,
+                            ntries=10,
                             nsamples=1000,
                             kl_places=2):
     cluster_hp = {'alpha':2.0}
@@ -115,7 +115,7 @@ def _test_convergence_bb_cxx(N,
                              nonconj=False,
                              burnin_niters=10000,
                              skip=10,
-                             ntries=5,
+                             ntries=10,
                              nsamples=1000,
                              kl_places=2):
     r = rng()
@@ -248,7 +248,7 @@ def _test_nonconj_inference(initialize_fn,
 
     while True:
         Y_clustered, cluster_samplers = sample(
-            N, defn, cluster_hp, feature_hps, R)
+            defn, cluster_hp, feature_hps, R)
         if len(Y_clustered) == 2:
             break
     dominant = np.argmax(map(len, Y_clustered))
@@ -301,11 +301,11 @@ def test_nonconj_inference_py():
     _test_nonconj_inference(
             py_initialize, py_numpy_dataview, py_bind,
             py_gibbs_assign_nonconj, py_slice_theta, R=None,
-            ntries=5, nsamples=100, tol=0.2)
+            ntries=10, nsamples=100, tol=0.2)
 
 @attr('slow')
 def test_nonconj_inference_cxx():
     _test_nonconj_inference(
             cxx_initialize, cxx_numpy_dataview, cxx_bind,
             cxx_gibbs_assign_nonconj, cxx_slice_theta, R=rng(),
-            ntries=5, nsamples=100, tol=0.2)
+            ntries=10, nsamples=100, tol=0.2)
