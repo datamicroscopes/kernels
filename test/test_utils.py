@@ -121,6 +121,8 @@ def assert_discrete_dist_approx(sample_fn,
 
             print 'KL_discrete(emp, act):', ab
             print 'KL_discrete(act, emp):', ba
+            print 'act:', dist
+            print 'emp:', hist
 
             our_assert_almost_equals(ab, 0., places=kl_places)
             our_assert_almost_equals(ba, 0., places=kl_places)
