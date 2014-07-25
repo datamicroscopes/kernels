@@ -209,6 +209,7 @@ setup(
     description='XYZ',
     long_description='XYZ long',
     packages=(
+        'microscopes.kernels',
         'microscopes.cxx.kernels',
         'microscopes.py.kernels',
     ),
