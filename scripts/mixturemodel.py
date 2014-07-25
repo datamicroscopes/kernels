@@ -12,6 +12,23 @@ from microscopes.cxx.kernels import gibbs
 from microscopes.cxx.common.recarray.dataview import numpy_dataview
 from microscopes.cxx.mixture.model import bind, initialize
 
+def versions():
+    from microscopes.common import __version__ as common_version
+    from microscopes.mixture import __version__ as mixturemodel_version
+    from microscopes.kernels import __version__ as kernels_version
+    def parse(version):
+        tag = version.split('.')[-1]
+        print tag
+        if len(tag) <= 10:
+            # sha1 tags are probably longer than 10 chars
+            return None
+        if not '-' in tag:
+            return tag
+        sha1 = tag.split('-')[0][:8]
+        if 'debug' in tag:
+            return sha1 + 'debug'
+        return sha1
+    return { 'common':parse(common_version), 'mixturemodel':parse(mixturemodel_version), 'kernels':parse(kernels_version), }
 
 def measure(groups, entities_per_group, features, target_runtime):
     if groups <= 0:
@@ -66,6 +83,11 @@ if __name__ == '__main__':
     parser.add_argument('--target-runtime', type=int, required=True)
     args = parser.parse_args()
     print args
+
+    vs = versions()
+    vstr = 'c{}-m{}-k{}'.format(vs['common'], vs['mixturemodel'], vs['kernels'])
+    print 'vstr:', vstr
+
     target_runtime = args.target_runtime
     results = []
     for groups, entities_per_group, features in it.product(args.groups, args.entities_per_group, args.features):
@@ -74,13 +96,17 @@ if __name__ == '__main__':
         print 'finished ({}, {}, {}) in {} seconds'.format(groups, entities_per_group, features, time.time()-start)
 
     results = np.array(results).reshape((len(args.groups), len(args.entities_per_group), len(args.features)))
+    groups = np.array(args.groups, dtype=np.float)
     for i in xrange(len(args.features)):
         data = results[:,:,i]
+        linear = groups * (data[0, 0] / (float(args.entities_per_group[0]) * groups[0]) / groups[0])
+        plt.plot(args.groups, linear, 'k--')
         for j in xrange(len(args.entities_per_group)):
-            plt.plot(args.groups, data[:,j])
-        plt.legend(['gsize {}'.format(gsize) for gsize in args.entities_per_group])
+            plt.plot(args.groups, data[:,j] / (float(args.entities_per_group[j]) * groups))
+        plt.legend(['linear'] + ['gsize {}'.format(gsize) for gsize in args.entities_per_group], loc='lower right')
         plt.xlabel('groups')
-        plt.ylabel('time/iteration (sec)')
-        plt.savefig('mixturemodel-perf-f{}.pdf'.format(args.features[i]))
+        plt.ylabel('time/iteration/entity (sec)')
+        plt.ylim(ymin=0)
+        plt.tight_layout()
+        plt.savefig('mixturemodel-perf-{}-f{}.pdf'.format(vstr, args.features[i]))
         plt.close()
-
