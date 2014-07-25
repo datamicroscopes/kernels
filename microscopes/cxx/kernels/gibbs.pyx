@@ -8,6 +8,7 @@ from microscopes.cxx.kernels._gibbs_h cimport \
         assign as c_assign, \
         assign_resample as c_assign_resample, \
         hp as c_hp, \
+        perftest as c_perftest, \
         grid_t
 from microscopes.cxx.common._entity_state cimport \
         fixed_entity_based_state_object, \
@@ -54,3 +55,7 @@ def hp(fixed_entity_based_state_object s, dict params, rng r):
                 pair[hypers_raw_ptr, float](ptrs.back().get(), prior_score))
         g.push_back(pair[size_t, grid_t](fi, g0))
     c_hp(s._thisptr.get()[0], g, r._thisptr[0])
+        
+def perftest(entity_based_state_object s, rng r):
+    assert r
+    c_perftest(s.px().get()[0], r._thisptr[0])

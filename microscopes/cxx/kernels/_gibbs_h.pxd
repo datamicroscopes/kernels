@@ -14,3 +14,4 @@ cdef extern from "microscopes/kernels/gibbs.hpp" namespace "microscopes::kernels
     void assign(entity_based_state_object &, rng_t &) except +
     void assign_resample(entity_based_state_object &, size_t, rng_t &) except +
     void hp(fixed_entity_based_state_object &, vector[pair[size_t, grid_t]] &, rng_t &) except +
+    void perftest(entity_based_state_object &, rng_t &) except +

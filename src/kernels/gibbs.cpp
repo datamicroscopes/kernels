@@ -117,3 +117,18 @@ gibbs::hp(fixed_entity_based_state_object &s,
     s.set_component_hp(fid, *g[choice].first);
   }
 }
+
+// for performance debugging purposes
+// doesn't change the group assignments
+void
+gibbs::perftest(entity_based_state_object &s, rng_t &rng)
+{
+  AssertAllAssigned(s);
+  for (auto i : util::permute(s.nentities(), rng)) {
+    const size_t gid = s.remove_value(i, rng);
+    auto scores = s.score_value(i, rng);
+    const auto choice = scores.first[util::sample_discrete_log(scores.second, rng)];
+    (void)choice; // XXX: make sure compiler does not optimize this out
+    s.add_value(gid, i, rng);
+  }
+}

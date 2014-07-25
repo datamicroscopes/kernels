@@ -25,6 +25,10 @@ struct gibbs {
   hp(common::fixed_entity_based_state_object &state,
      const std::vector<std::pair<size_t, grid_t>> &params,
      common::rng_t &rng);
+
+  static void
+  perftest(common::entity_based_state_object &state,
+           common::rng_t &rng);
 };
 
 } // namespace kernels

@@ -12,6 +12,7 @@ from microscopes.cxx.kernels import gibbs
 from microscopes.cxx.common.recarray.dataview import numpy_dataview
 from microscopes.cxx.mixture.model import bind, initialize
 
+
 def measure(groups, entities_per_group, features, target_runtime):
     if groups <= 0:
         raise ValueError('need positive groups')
@@ -36,13 +37,14 @@ def measure(groups, entities_per_group, features, target_runtime):
     r = rng()
 
     latent = bind(initialize(defn, view, r, assignment=assignment), view)
+    latent.create_group(r) # perftest() doesnt modify group assignments
     start = time.time()
     loop_start = start
     iters = 0
     iters_before_check = 1
     while 1:
         for _ in xrange(iters_before_check):
-            gibbs.assign(latent, r)
+            gibbs.perftest(latent, r)
         iters += iters_before_check
         cur = time.time()
         elapsed = cur - start
