@@ -20,9 +20,10 @@ void
 gibbs::assign_fixed(fixed_entity_based_state_object &s, rng_t &rng)
 {
   AssertAllAssigned(s);
+  pair<vector<size_t>, vector<float>> scores;
   for (auto i : util::permute(s.nentities(), rng)) {
     s.remove_value(i, rng);
-    auto scores = s.score_value(i, rng);
+    s.inplace_score_value(scores, i, rng);
     const auto choice = scores.first[util::sample_discrete_log(scores.second, rng)];
     s.add_value(choice, i, rng);
   }
@@ -32,6 +33,7 @@ void
 gibbs::assign(entity_based_state_object &s, rng_t &rng)
 {
   AssertAllAssigned(s);
+  pair<vector<size_t>, vector<float>> scores;
   // ensure 1 empty group
   const auto empty_groups = s.empty_groups();
   size_t egid = 0;
@@ -48,7 +50,7 @@ gibbs::assign(entity_based_state_object &s, rng_t &rng)
     if (!s.groupsize(gid))
       s.delete_group(gid);
     MICROSCOPES_ASSERT(s.empty_groups().size() == 1);
-    auto scores = s.score_value(i, rng);
+    s.inplace_score_value(scores, i, rng);
     const auto choice = scores.first[util::sample_discrete_log(scores.second, rng)];
     s.add_value(choice, i, rng);
     if (choice == egid)
@@ -65,6 +67,7 @@ gibbs::assign_resample(entity_based_state_object &s, size_t m, rng_t &rng)
   //   Journal of Computational and Graphical Statistics, 2000
   //   http://www.cs.toronto.edu/~radford/mixmc.abstract.html
   AssertAllAssigned(s);
+  pair<vector<size_t>, vector<float>> scores;
   MICROSCOPES_DCHECK(m > 0, "need >=1 # of ephmeral groups");
   for (auto i : util::permute(s.nentities(), rng)) {
     const size_t gid = s.remove_value(i, rng);
@@ -92,7 +95,7 @@ gibbs::assign_resample(entity_based_state_object &s, size_t m, rng_t &rng)
 
     MICROSCOPES_ASSERT(s.empty_groups().size() == m);
 
-    auto scores = s.score_value(i, rng);
+    s.inplace_score_value(scores, i, rng);
     const auto choice = scores.first[util::sample_discrete_log(scores.second, rng)];
     s.add_value(choice, i, rng);
   }
@@ -124,9 +127,10 @@ void
 gibbs::perftest(entity_based_state_object &s, rng_t &rng)
 {
   AssertAllAssigned(s);
+  pair<vector<size_t>, vector<float>> scores;
   for (auto i : util::permute(s.nentities(), rng)) {
     const size_t gid = s.remove_value(i, rng);
-    auto scores = s.score_value(i, rng);
+    s.inplace_score_value(scores, i, rng);
     const auto choice = scores.first[util::sample_discrete_log(scores.second, rng)];
     (void)choice; // XXX: make sure compiler does not optimize this out
     s.add_value(gid, i, rng);
