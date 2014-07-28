@@ -10,7 +10,8 @@ from microscopes.mixture.definition import model_definition
 
 from sklearn.datasets import fetch_mldata
 from sklearn.cross_validation import train_test_split
-from sklearn.metrics import accuracy_score, roc_curve, roc_auc_score
+from sklearn.metrics import accuracy_score, roc_curve, roc_auc_score, \
+        confusion_matrix
 
 import numpy as np
 import numpy.ma as ma
@@ -83,6 +84,43 @@ def test_mnist_supervised():
         } for i in xrange(D-1) }
     hparams[D-1] = {'alphas':[vector_param(idx, indiv_prior_fn, 1.5) for idx in xrange(len(classes))]}
 
+    def print_prediction_results():
+        results = []
+        for c, Y_test in zip(classes, test_data):
+            for y in Y_test:
+                query = ma.masked_array(
+                    np.array([tuple(y) + (0,)], dtype=[('',bool)]*(D-1)+[('',int)]),
+                    mask=[(False,)*(D-1) + (True,)])[0]
+                samples = [s.sample_post_pred(query, r)[1][0][-1] for _ in xrange(30)]
+                samples = np.bincount(samples, minlength=len(classes))
+                prediction = np.argmax(samples)
+                results.append((classmap[c], prediction, samples))
+            print 'finished predictions for class', c
+
+        Y_actual = np.array([a for a, _, _ in results], dtype=np.int)
+        Y_pred = np.array([b for _, b, _ in results], dtype=np.int)
+        print 'accuracy:', accuracy_score(Y_actual, Y_pred)
+        print 'confusion matrix:'
+        print confusion_matrix(Y_actual, Y_pred)
+
+        # AUROC for one vs all (each class)
+        for i, clabel in enumerate(classes):
+            Y_true = np.copy(Y_actual)
+
+            # treat class c as the "positive" example
+            positive_examples = Y_actual == i
+            negative_examples = Y_actual != i
+            Y_true[positive_examples] = 1
+            Y_true[negative_examples] = 0
+            Y_prob = np.array([float(c[i])/c.sum() for _, _, c in results])
+            cls_auc = roc_auc_score(Y_true, Y_prob)
+            print 'class', clabel, 'auc=', cls_auc
+
+        #Y_prob = np.array([c for _, _, c in results])
+        #fpr, tpr, thresholds = roc_curve(Y_actual, Y_prob, pos_label=0)
+        #plt.plot(fpr, tpr)
+        #plt.show()
+
     def kernel(rid):
         start0 = time.time()
         assign(bound_s, r)
@@ -97,44 +135,12 @@ def test_mnist_supervised():
         sec_per_post_pred = sec0 / (float(view.size()) * (float(s.ngroups())))
         print '  time_per_post_pred=', sec_per_post_pred, 'sec'
 
+        print_prediction_results()
+
     # training
     iters = 30
     for rid in xrange(iters):
         kernel(rid)
-
-    results = []
-    for c, Y_test in zip(classes, test_data):
-        for y in Y_test:
-            query = ma.masked_array(
-                np.array([tuple(y) + (0,)], dtype=[('',bool)]*(D-1)+[('',int)]),
-                mask=[(False,)*(D-1) + (True,)])[0]
-            samples = [s.sample_post_pred(query, r)[1][0][-1] for _ in xrange(30)]
-            samples = np.bincount(samples, minlength=len(classes))
-            prediction = np.argmax(samples)
-            results.append((classmap[c], prediction, samples))
-        print 'finished predictions for class', c
-
-    Y_actual = np.array([a for a, _, _ in results], dtype=np.int)
-    Y_pred = np.array([b for _, b, _ in results], dtype=np.int)
-    print 'accuracy:', accuracy_score(Y_actual, Y_pred)
-
-    # AUROC for one vs all (each class)
-    for i, clabel in enumerate(classes):
-        Y_true = np.copy(Y_actual)
-
-        # treat class c as the "positive" example
-        positive_examples = Y_actual == i
-        negative_examples = Y_actual != i
-        Y_true[positive_examples] = 1
-        Y_true[negative_examples] = 0
-        Y_prob = np.array([float(c[i])/c.sum() for _, _, c in results])
-        cls_auc = roc_auc_score(Y_true, Y_prob)
-        print 'class', clabel, 'auc=', cls_auc
-
-    #Y_prob = np.array([c for _, _, c in results])
-    #fpr, tpr, thresholds = roc_curve(Y_actual, Y_prob, pos_label=0)
-    #plt.plot(fpr, tpr)
-    #plt.show()
 
 @attr('slow')
 def test_mnist():
