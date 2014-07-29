@@ -5,6 +5,7 @@ from microscopes.cxx.mixture.model import initialize, bind
 from microscopes.cxx.kernels.gibbs import assign
 from microscopes.cxx.kernels.slice import hp
 from microscopes.py.kernels.slice import scalar_param, vector_param
+from microscopes.py.common.util import mkdirp
 from microscopes.models import bb, dd
 from microscopes.mixture.definition import model_definition
 
@@ -17,6 +18,7 @@ import numpy as np
 import numpy.ma as ma
 import math
 import time
+import os
 
 from nose.plugins.attrib import attr
 from PIL import Image, ImageOps
@@ -38,8 +40,6 @@ def groupsbysize(s):
 
 @attr('slow')
 def test_mnist_supervised():
-    import matplotlib.pylab as plt
-    #classes = [2, 3, 4]
     mnist_dataset = _get_mnist_dataset()
     classes = range(10)
     classmap = { c : i for i, c in enumerate(classes) }
@@ -116,6 +116,7 @@ def test_mnist_supervised():
             cls_auc = roc_auc_score(Y_true, Y_prob)
             print 'class', clabel, 'auc=', cls_auc
 
+        #import matplotlib.pylab as plt
         #Y_prob = np.array([c for _, _, c in results])
         #fpr, tpr, thresholds = roc_curve(Y_actual, Y_prob, pos_label=0)
         #plt.plot(fpr, tpr)
@@ -135,7 +136,18 @@ def test_mnist_supervised():
         sec_per_post_pred = sec0 / (float(view.size()) * (float(s.ngroups())))
         print '  time_per_post_pred=', sec_per_post_pred, 'sec'
 
+        # print group size breakdown
+        sizes = [(gid, s.groupsize(gid)) for gid in s.groups()]
+        sizes = sorted(sizes, key=lambda x: x[1], reverse=True)
+        print '  group_sizes=', sizes
+
         print_prediction_results()
+
+        # save state
+        mkdirp("mnist-states")
+        fname = os.path.join("mnist-states", "state-iter{}.ser".format(rid))
+        with open(fname, "w") as fp:
+            fp.write(s.serialize())
 
     # training
     iters = 30
