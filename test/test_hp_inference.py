@@ -7,7 +7,8 @@ from microscopes.cxx.kernels.gibbs import hp as cxx_gibbs_hp
 from microscopes.cxx.kernels.slice import hp as cxx_slice_hp
 
 from microscopes.cxx.common.rng import rng
-from microscopes.cxx.common.scalar_functions import log_exponential
+from microscopes.cxx.common.scalar_functions import \
+    log_exponential, log_noninformative_beta_prior
 
 from microscopes.py.common.recarray.dataview import numpy_dataview as py_numpy_dataview
 from microscopes.cxx.common.recarray.dataview import numpy_dataview as cxx_numpy_dataview
@@ -235,19 +236,15 @@ def test_kernel_gibbs_hp_cxx():
                           'grid_gibbs_hp_samples_cxx.pdf',
                           rng())
 
-def _test_kernel_slice_hp(initialize_fn, dataview, bind_fn, slice_hp_fn, fname, prng):
+def _test_kernel_slice_hp(initialize_fn,
+                          init_inf_kernel_state_fn,
+                          prior_fn,
+                          dataview,
+                          bind_fn,
+                          slice_hp_fn,
+                          fname,
+                          prng):
     grid_min, grid_max, grid_n = 0.01, 5.0, 200
-    indiv_prior_fn = log_exponential(1.2)
-    def init_inf_kernel_state_fn(s):
-        hparams = {
-            0 : {
-                'alpha' : (indiv_prior_fn, 1.5),
-                'beta'  : (indiv_prior_fn, 1.5),
-                }
-            }
-        return hparams
-    def prior_fn(raw):
-        return indiv_prior_fn(raw['alpha']) + indiv_prior_fn(raw['beta'])
     _test_hp_inference(
         initialize_fn,
         prior_fn,
@@ -262,13 +259,26 @@ def _test_kernel_slice_hp(initialize_fn, dataview, bind_fn, slice_hp_fn, fname, 
         grid_filename=fname,
         prng=prng,
         burnin=100,
-        trials=10,
+        trials=100,
         nsamples=100)
 
 @attr('slow')
 def test_kernel_slice_hp_py():
+    indiv_prior_fn = log_exponential(1.2)
+    def init_inf_kernel_state_fn(s):
+        hparams = {
+            0 : {
+                'alpha' : (indiv_prior_fn, 1.5),
+                'beta'  : (indiv_prior_fn, 1.5),
+                }
+            }
+        return hparams
+    def prior_fn(raw):
+        return indiv_prior_fn(raw['alpha']) + indiv_prior_fn(raw['beta'])
     kernel_fn = lambda s, arg, rng: py_slice_hp(s, rng, hparams=arg)
     _test_kernel_slice_hp(py_initialize,
+                          init_inf_kernel_state_fn,
+                          prior_fn,
                           py_numpy_dataview,
                           py_bind,
                           kernel_fn,
@@ -276,12 +286,66 @@ def test_kernel_slice_hp_py():
                           prng=None)
 
 def test_kernel_slice_hp_cxx():
+    indiv_prior_fn = log_exponential(1.2)
+    def init_inf_kernel_state_fn(s):
+        hparams = {
+            0 : {
+                'alpha' : (indiv_prior_fn, 1.5),
+                'beta'  : (indiv_prior_fn, 1.5),
+                }
+            }
+        return hparams
+    def prior_fn(raw):
+        return indiv_prior_fn(raw['alpha']) + indiv_prior_fn(raw['beta'])
     kernel_fn = lambda s, arg, rng: cxx_slice_hp(s, rng, hparams=arg)
     _test_kernel_slice_hp(cxx_initialize,
+                          init_inf_kernel_state_fn,
+                          prior_fn,
                           cxx_numpy_dataview,
                           cxx_bind,
                           kernel_fn,
                           'grid_slice_hp_cxx_samples.pdf',
+                          rng())
+
+@attr('slow')
+def test_kernel_slice_hp_noninform_py():
+    def init_inf_kernel_state_fn(s):
+        hparams = {
+            0 : {
+                  ('alpha', 'beta') : (log_noninformative_beta_prior, 1.0),
+                }
+            }
+        return hparams
+    def prior_fn(raw):
+        return log_noninformative_beta_prior(raw['alpha'], raw['beta'])
+    kernel_fn = lambda s, arg, rng: py_slice_hp(s, rng, hparams=arg)
+    _test_kernel_slice_hp(py_initialize,
+                          init_inf_kernel_state_fn,
+                          prior_fn,
+                          py_numpy_dataview,
+                          py_bind,
+                          kernel_fn,
+                          'grid_slice_hp_noninform_py_samples.pdf',
+                          prng=None)
+
+def test_kernel_slice_hp_noninform_cxx():
+    def init_inf_kernel_state_fn(s):
+        hparams = {
+            0 : {
+                  ('alpha', 'beta') : (log_noninformative_beta_prior, 1.0),
+                }
+            }
+        return hparams
+    def prior_fn(raw):
+        return log_noninformative_beta_prior(raw['alpha'], raw['beta'])
+    kernel_fn = lambda s, arg, rng: cxx_slice_hp(s, rng, hparams=arg)
+    _test_kernel_slice_hp(cxx_initialize,
+                          init_inf_kernel_state_fn,
+                          prior_fn,
+                          cxx_numpy_dataview,
+                          cxx_bind,
+                          kernel_fn,
+                          'grid_slice_hp_noninform_cxx_samples.pdf',
                           rng())
 
 #@attr('slow')
