@@ -6,6 +6,7 @@ Slice sampler based on:
 
 import numpy as np
 
+import re
 import math
 import logging
 logger = logging.getLogger(__name__)
@@ -51,62 +52,85 @@ def shrink(pdf, x0, y, L, R, ntries):
     logging.warn('shrink exceeded maximum iterations (%d)' % (ntries))
     return x1
 
-def slice_sample(pdf, x0, w, r=None):
+def sample(pdf, x0, w, r=None):
     y = np.log(np.random.random()) + pdf(x0)
     L, R = interval(pdf, x0, y, w, m=10000)
     return shrink(pdf, x0, y, L, R, ntries=100)
 
-class scalar_param(object):
-    def __init__(self, prior, w):
-        self._prior = prior
-        self._w = w
-    def set(self, hp, key, value):
-        hp[key] = value
-    def get(self, hp, key):
-        return hp[key]
-    def index(self):
-        return None
+_desc_regex = re.compile(r'(.+)\[(\d+)\]$')
+def _parse_descriptor(desc, default=None):
+    m = _desc_regex.match(desc)
+    if not m:
+        return desc, default
+    return m.group(1), int(m.group(2))
 
-class vector_param(object):
-    def __init__(self, idx, prior, w):
-        self._idx = idx
-        self._prior = prior
-        self._w = w
-    def set(self, hp, key, value):
-        hp[key][self._idx] = value
-    def get(self, hp, key):
-        return hp[key][self._idx]
-    def index(self):
-        return self._idx
+def hp(s, r=None, cparam=None, hparams=None):
+    # XXX: None should indicate use a sane default
+    if cparam is None:
+        cparam = {}
+    if hparams is None:
+        hparams = {}
 
-def hp(s, cparams, hparams, r=None):
-    for fi, hparam in hparams.iteritems():
-        hp = s.get_component_hp(fi)
-        items = list(hparam.iteritems())
-        for i in np.random.permutation(np.arange(len(items))):
-            key, objs = items[i]
-            if not hasattr(objs, '__iter__'):
-                objs = [objs]
-            for param in objs:
-                def pdf(x):
-                    param.set(hp, key, x)
-                    s.set_component_hp(fi, hp)
-                    return param._prior(x) + s.score_likelihood(fi, rng)
-                param.set(hp, key, slice_sample(pdf, param.get(hp, key), param._w))
-        s.set_component_hp(fi, hp)
+    def get_hp_value(update_desc):
+        key, idx = update_desc
+        val = hp[key]
+        if idx is not None:
+            val = val[idx]
+        return val
+
+    def set_hp_value(update_desc, val):
+        key, idx = update_desc
+        if idx is not None:
+            hp[key][idx] = val
+        else:
+            hp[key] = val
+
+    # XXX: fix code dup
+
     hp = s.get_cluster_hp()
-    for key, objs in cparams.iteritems():
-        if not hasattr(objs, '__iter__'):
-           objs = [objs]
-        for param in objs:
-            def pdf(x):
-                param.set(hp, key, x)
+    for update_descs, (prior, w) in cparam.iteritems():
+        if not hasattr(update_descs, '__iter__'):
+            update_descs = [update_descs]
+        #if len(update_descs) != prior.input_dim():
+        #    raise ValueError("wrong # of args for prior function")
+        update_descs = map(_parse_descriptor, update_descs)
+        args = map(get_hp_value, update_descs)
+        for argpos, update_desc in enumerate(update_descs):
+            def scorefn(x):
+                set_hp_value(update_desc, x)
+                args[argpos] = x
                 s.set_cluster_hp(hp)
-                return param._prior(x) + s.score_assignment()
-            param.set(hp, key, slice_sample(pdf, param.get(hp, key), param._w))
+                return prior(*args) + s.score_assignment()
+            samp = sample(scorefn, args[argpos], w)
+            set_hp_value(update_desc, samp)
+            args[argpos] = samp
     s.set_cluster_hp(hp)
 
-def theta(s, tparams, r=None):
+    for fi, hparam in hparams.iteritems():
+        hp = s.get_component_hp(fi)
+        for update_descs, (prior, w) in hparam.iteritems():
+            if not hasattr(update_descs, '__iter__'):
+                update_descs = [update_descs]
+            #if len(update_descs) != prior.input_dim():
+            #    raise ValueError("wrong # of args for prior function")
+            update_descs = map(_parse_descriptor, update_descs)
+            args = map(get_hp_value, update_descs)
+            for argpos, update_desc in enumerate(update_descs):
+                def scorefn(x):
+                    set_hp_value(update_desc, x)
+                    args[argpos] = x
+                    s.set_component_hp(fi, hp)
+                    return prior(*args) + s.score_likelihood(fi, r)
+                samp = sample(scorefn, args[argpos], w)
+                set_hp_value(update_desc, samp)
+                args[argpos] = samp
+        s.set_component_hp(fi, hp)
+
+def theta(s, r=None, tparams=None):
+    # XXX: None should indicate use a sane default
+    if tparams is None:
+        tparams = {}
+
     for fi, params in tparams.iteritems():
         groups = np.array(s.suffstats_identifiers(fi), dtype=np.int)
         for k, w in params.iteritems():

@@ -2,6 +2,7 @@
 
 #include <microscopes/common/random_fwd.hpp>
 #include <microscopes/common/typedefs.hpp>
+#include <microscopes/common/scalar_functions.hpp>
 #include <microscopes/common/entity_state.hpp>
 
 #include <distributions/random.hpp>
@@ -89,28 +90,46 @@ struct slice {
     return shrink(scorefn, x0, y, p.first, p.second, rng, ntries);
   }
 
-  struct slice_hp_param_component_t {
-    slice_hp_param_component_t() : index_(), prior_(), w_() {}
-    slice_hp_param_component_t(
-        size_t index,
-        common::scalar_1d_float_fn prior,
-        float w)
-      : index_(index), prior_(prior), w_(w) {}
+  // helper for cython
+  static inline float
+  sample_1d(common::scalar_fn scorefn,
+            float x0,
+            float w,
+            common::rng_t &rng,
+            unsigned m=10000,
+            unsigned ntries=100)
+  {
+    MICROSCOPES_DCHECK(scorefn.input_dim() == 1,
+        "not a scalar 1d function");
+    return sample([&scorefn](float x) { return scorefn({x}); }, x0, w, rng, m, ntries);
+  }
 
+  struct slice_update_param_t {
+    slice_update_param_t() : key_(), index_() {}
+    slice_update_param_t(const std::string &key, size_t index)
+      : key_(key), index_(index) {}
+
+    std::string key_;
     size_t index_;
-    common::scalar_1d_float_fn prior_;
-    float w_;
   };
 
   struct slice_hp_param_t {
-    slice_hp_param_t() : key_(), components_() {}
+    slice_hp_param_t() : updates_(), prior_(), w_() {}
     slice_hp_param_t(
-        const std::string &key,
-        const std::vector<slice_hp_param_component_t> &components)
-      : key_(key), components_(components) {}
+        const std::vector<slice_update_param_t> &updates,
+        common::scalar_fn prior,
+        float w)
+      : updates_(updates),
+        prior_(prior),
+        w_(w)
+    {
+      MICROSCOPES_DCHECK(updates.size() == prior_.input_dim(),
+          "# args mismatch");
+    }
 
-    std::string key_;
-    std::vector<slice_hp_param_component_t> components_;
+    std::vector<slice_update_param_t> updates_;
+    common::scalar_fn prior_;
+    float w_;
   };
 
   struct slice_hp_t {
@@ -119,26 +138,16 @@ struct slice {
         size_t index,
         const std::vector<slice_hp_param_t> &params)
       : index_(index), params_(params) {}
-
-    size_t index_;
+    size_t index_; // the feature ID
     std::vector<slice_hp_param_t> params_;
   };
 
-  static void
-  hp(common::fixed_entity_based_state_object &state,
-     const std::vector<slice_hp_param_t> &cparams,
-     const std::vector<slice_hp_t> &hparams,
-     common::rng_t &rng);
-
   struct slice_theta_param_t {
-    slice_theta_param_t() : key_(), prior_(), w_() {}
-    slice_theta_param_t(
-        const std::string &key,
-        float w)
+    slice_theta_param_t() : key_(), w_() {}
+    slice_theta_param_t(const std::string &key, float w)
       : key_(key), w_(w) {}
 
     std::string key_;
-    common::scalar_1d_float_fn prior_;
     float w_;
   };
 
@@ -152,6 +161,12 @@ struct slice {
     size_t index_;
     std::vector<slice_theta_param_t> params_;
   };
+
+  static void
+  hp(common::fixed_entity_based_state_object &state,
+     const std::vector<slice_hp_param_t> &cparams,
+     const std::vector<slice_hp_t> &hparams,
+     common::rng_t &rng);
 
   static void
   theta(common::fixed_entity_based_state_object &state,

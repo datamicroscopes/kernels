@@ -218,7 +218,7 @@ def test_one_binary_nonconj():
     params = { 0 : mkparam() }
     def kernel(s, r):
         assign_resample(s, 10, r)
-        theta(s, params, r)
+        theta(s, r, tparams=params)
     _test_convergence(domains, data, mk_relations(bbnc), mk_relations(bb), kernel)
 
 def test_two_domain_two_binary():

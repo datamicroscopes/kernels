@@ -13,14 +13,17 @@ struct feature_scorefn {
   operator()(float m)
   {
     mut_->set<float>(m, pos_);
-    return prior_scorefn_(m) + s_->score_likelihood(feature_, *rng_);
+    args_[argpos_] = m;
+    return prior_scorefn_(args_) + s_->score_likelihood(feature_, *rng_);
   }
   value_mutator *mut_;
   size_t pos_;
+  size_t argpos_;
   fixed_entity_based_state_object *s_;
   rng_t *rng_;
   size_t feature_;
-  scalar_1d_float_fn prior_scorefn_;
+  scalar_fn prior_scorefn_;
+  vector<float> args_;
 };
 
 struct cluster_scorefn {
@@ -28,12 +31,15 @@ struct cluster_scorefn {
   operator()(float m)
   {
     mut_->set<float>(m, pos_);
-    return prior_scorefn_(m) + s_->score_assignment();
+    args_[argpos_] = m;
+    return prior_scorefn_(args_) + s_->score_assignment();
   }
   value_mutator *mut_;
   size_t pos_;
+  size_t argpos_;
   fixed_entity_based_state_object *s_;
-  scalar_1d_float_fn prior_scorefn_;
+  scalar_fn prior_scorefn_;
+  vector<float> args_;
 };
 
 void
@@ -43,46 +49,77 @@ slice::hp(fixed_entity_based_state_object &s,
           rng_t &rng)
 {
   vector<size_t> indices;
+  vector<value_mutator> mutators;
 
   // slice on the feature HPs
   feature_scorefn feature_func;
   feature_func.s_ = &s;
   feature_func.rng_ = &rng;
-  for (const auto &p : hparams) {
+  for (const auto &p : hparams) { // XXX: permute the hparams?
     feature_func.feature_ = p.index_;
     util::inplace_permute(indices, p.params_.size(), rng);
     for (auto pi : indices) {
       const auto &p1 = p.params_[pi];
-      value_mutator mut = s.get_component_hp_mutator(p.index_, p1.key_);
-      feature_func.mut_ = &mut;
-      MICROSCOPES_DCHECK(
-          mut.type().t() == TYPE_F32 ||
-          mut.type().t() == TYPE_F64, "need floats");
-      for (const auto &p2 : p1.components_) {
-        MICROSCOPES_DCHECK(p2.index_ < mut.shape(), "index OOB");
-        feature_func.pos_ = p2.index_;
-        feature_func.prior_scorefn_ = p2.prior_;
-        const float start = mut.accessor().get<float>(p2.index_);
-        mut.set<float>(sample(feature_func, start, p2.w_, rng), p2.index_);
+      feature_func.prior_scorefn_ = p1.prior_;
+      feature_func.args_.clear();
+
+      // bootstrap the args (and save the mutators)
+      mutators.clear();
+      for (const auto &update : p1.updates_) {
+        mutators.emplace_back(s.get_component_hp_mutator(p.index_, update.key_));
+        MICROSCOPES_DCHECK(update.index_ < mutators.back().shape(), "update index OOB");
+        feature_func.args_.push_back(mutators.back().accessor().get<float>(update.index_));
+      }
+
+      // XXX: permute this order?
+      for (size_t i = 0; i < p1.updates_.size(); i++) {
+        value_mutator &mut = mutators[i];
+        const size_t index = p1.updates_[i].index_;
+        MICROSCOPES_DCHECK(
+            mut.type().t() == TYPE_F32 || mut.type().t() == TYPE_F64,
+            "need floats");
+        feature_func.mut_ = &mut;
+        feature_func.pos_ = index;
+        feature_func.argpos_ = i;
+        const float start = feature_func.args_[i];
+        const float samp = sample(feature_func, start, p1.w_, rng);
+        mut.set<float>(samp, index);
+        feature_func.args_[i] = samp;
       }
     }
   }
 
+  // XXX: fix the code duplication
+
   // slice on the cluster HPs
   cluster_scorefn cluster_func;
   cluster_func.s_ = &s;
+  // XXX: permute the cparams?
   for (const auto &p : cparams) {
-    value_mutator mut = s.get_cluster_hp_mutator(p.key_);
-    cluster_func.mut_ = &mut;
-    MICROSCOPES_DCHECK(
-        mut.type().t() == TYPE_F32 ||
-        mut.type().t() == TYPE_F64, "need floats");
-    for (const auto &p1 : p.components_) {
-      MICROSCOPES_DCHECK(p1.index_ < mut.shape(), "index OOB");
-      cluster_func.pos_ = p1.index_;
-      cluster_func.prior_scorefn_ = p1.prior_;
-      const float start = mut.accessor().get<float>(p1.index_);
-      mut.set<float>(sample(cluster_func, start, p1.w_, rng), p1.index_);
+    cluster_func.prior_scorefn_ = p.prior_;
+    cluster_func.args_.clear();
+
+    mutators.clear();
+    for (const auto &update : p.updates_) {
+      mutators.emplace_back(s.get_cluster_hp_mutator(update.key_));
+      MICROSCOPES_DCHECK(update.index_ < mutators.back().shape(), "update index OOB");
+      cluster_func.args_.push_back(mutators.back().accessor().get<float>(update.index_));
+    }
+
+    // XXX: permute this order?
+    for (size_t i = 0; i < p.updates_.size(); i++) {
+      value_mutator &mut = mutators[i];
+      const size_t index = p.updates_[i].index_;
+      MICROSCOPES_DCHECK(
+          mut.type().t() == TYPE_F32 || mut.type().t() == TYPE_F64,
+          "need floats");
+      cluster_func.mut_ = &mut;
+      cluster_func.pos_ = index;
+      cluster_func.argpos_ = i;
+      const float start = cluster_func.args_[i];
+      const float samp = sample(cluster_func, start, p.w_, rng);
+      mut.set<float>(samp, index);
+      cluster_func.args_[i] = samp;
     }
   }
 }

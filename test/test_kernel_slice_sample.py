@@ -1,4 +1,4 @@
-from microscopes.py.kernels.slice import slice_sample as py_slice_sample
+from microscopes.py.kernels.slice import sample as py_slice_sample
 from microscopes.cxx.kernels.slice import sample as cxx_slice_sample
 from microscopes.cxx.common.scalar_functions import log_normal
 from microscopes.cxx.common.rng import rng

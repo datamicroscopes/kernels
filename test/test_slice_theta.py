@@ -48,7 +48,7 @@ def test_slice_theta_mm():
     bs = mm_bind(s, view)
     params = {0:{'p':0.05}}
     def sample_fn():
-        theta(bs, params, r)
+        theta(bs, r, tparams=params)
         return s.get_suffstats(0, 0)['p']
 
     rv = beta(alpha1, beta1)
@@ -81,7 +81,7 @@ def test_slice_theta_irm():
     beta1 = prior['beta'] + tails
 
     def sample_fn():
-        theta(bs, params, r)
+        theta(bs, r, tparams=params)
         return s.get_suffstats(0, [0,0])['p']
 
     rv = beta(alpha1, beta1)

@@ -4,7 +4,6 @@ from microscopes.cxx.common.scalar_functions import log_exponential
 from microscopes.cxx.mixture.model import initialize, bind
 from microscopes.cxx.kernels.gibbs import assign
 from microscopes.cxx.kernels.slice import hp
-from microscopes.py.kernels.slice import scalar_param, vector_param
 from microscopes.py.common.util import mkdirp
 from microscopes.models import bb, dd
 from microscopes.mixture.definition import model_definition
@@ -79,10 +78,10 @@ def test_mnist_supervised():
     indiv_prior_fn = log_exponential(1.2)
     hparams = {
         i : {
-            'alpha' : scalar_param(indiv_prior_fn, 1.5),
-            'beta'  : scalar_param(indiv_prior_fn, 1.5),
+            'alpha' : (indiv_prior_fn, 1.5),
+            'beta'  : (indiv_prior_fn, 1.5),
         } for i in xrange(D-1) }
-    hparams[D-1] = {'alphas':[vector_param(idx, indiv_prior_fn, 1.5) for idx in xrange(len(classes))]}
+    hparams[D-1] = {'alphas[{}]'.format(idx) : (indiv_prior_fn, 1.5) for idx in xrange(len(classes))}
 
     def print_prediction_results():
         results = []
@@ -128,7 +127,7 @@ def test_mnist_supervised():
         sec0 = time.time() - start0
 
         start1 = time.time()
-        hp(bound_s, {}, hparams, r)
+        hp(bound_s, r, hparams=hparams)
         sec1 = time.time() - start1
 
         print 'rid=', rid, 'nclusters=', s.ngroups(), 'iter0=', sec0, 'sec', 'iter1=', sec1, 'sec'
@@ -183,8 +182,8 @@ def test_mnist():
     indiv_prior_fn = log_exponential(1.2)
     hparams = {
         i : {
-            'alpha' : scalar_param(indiv_prior_fn, 1.5),
-            'beta'  : scalar_param(indiv_prior_fn, 1.5),
+            'alpha' : (indiv_prior_fn, 1.5),
+            'beta'  : (indiv_prior_fn, 1.5),
         } for i in xrange(D) }
 
     def plot_clusters(s, fname, scalebysize=False):
@@ -254,7 +253,7 @@ def test_mnist():
         sec0 = time.time() - start0
 
         start1 = time.time()
-        hp(bound_s, {}, hparams, r)
+        hp(bound_s, r, hparams=hparams)
         sec1 = time.time() - start1
 
         print 'rid=', rid, 'nclusters=', s.ngroups(), 'iter0=', sec0, 'sec', 'iter1=', sec1, 'sec'

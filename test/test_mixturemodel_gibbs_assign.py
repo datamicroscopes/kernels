@@ -177,7 +177,7 @@ def test_convergence_bb_nonconj_py():
     thetaparams = {fi:{'p':0.1} for fi in xrange(D)}
     def kernel(s):
         py_gibbs_assign_nonconj(s, 10)
-        py_slice_theta(s, thetaparams)
+        py_slice_theta(s, tparams=thetaparams)
     _test_convergence_bb_py(N, D, kernel, preprocess_data_fn=None, nonconj=True)
 
 def test_convergence_bb_nonconj_cxx():
@@ -185,7 +185,7 @@ def test_convergence_bb_nonconj_cxx():
     thetaparams = {fi:{'p':0.1} for fi in xrange(D)}
     def kernel(s, r):
         cxx_gibbs_assign_nonconj(s, 10, r)
-        cxx_slice_theta(s, thetaparams, r)
+        cxx_slice_theta(s, r, tparams=thetaparams)
     _test_convergence_bb_cxx(N, D, kernel, preprocess_data_fn=None, nonconj=True)
 
 def _test_multivariate_models(initialize_fn,

@@ -1,6 +1,6 @@
 from microscopes.py.mixture.model import initialize as py_initialize, bind as py_bind
 from microscopes.py.kernels.gibbs import hp as py_gibbs_hp
-from microscopes.py.kernels.slice import hp as py_slice_hp, scalar_param
+from microscopes.py.kernels.slice import hp as py_slice_hp
 
 from microscopes.cxx.mixture.model import initialize as cxx_initialize, bind as cxx_bind
 from microscopes.cxx.kernels.gibbs import hp as cxx_gibbs_hp
@@ -241,8 +241,8 @@ def _test_kernel_slice_hp(initialize_fn, dataview, bind_fn, slice_hp_fn, fname, 
     def init_inf_kernel_state_fn(s):
         hparams = {
             0 : {
-                'alpha' : scalar_param(indiv_prior_fn, 1.5),
-                'beta'  : scalar_param(indiv_prior_fn, 1.5),
+                'alpha' : (indiv_prior_fn, 1.5),
+                'beta'  : (indiv_prior_fn, 1.5),
                 }
             }
         return hparams
@@ -267,7 +267,7 @@ def _test_kernel_slice_hp(initialize_fn, dataview, bind_fn, slice_hp_fn, fname, 
 
 @attr('slow')
 def test_kernel_slice_hp_py():
-    kernel_fn = lambda s, arg, rng: py_slice_hp(s, {}, arg, rng)
+    kernel_fn = lambda s, arg, rng: py_slice_hp(s, rng, hparams=arg)
     _test_kernel_slice_hp(py_initialize,
                           py_numpy_dataview,
                           py_bind,
@@ -276,7 +276,7 @@ def test_kernel_slice_hp_py():
                           prng=None)
 
 def test_kernel_slice_hp_cxx():
-    kernel_fn = lambda s, arg, rng: cxx_slice_hp(s, {}, arg, rng)
+    kernel_fn = lambda s, arg, rng: cxx_slice_hp(s, rng, hparams=arg)
     _test_kernel_slice_hp(cxx_initialize,
                           cxx_numpy_dataview,
                           cxx_bind,
