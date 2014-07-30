@@ -19,6 +19,56 @@ def our_assert_almost_equals(first, second, places=None, msg=None, delta=None):
     except AssertionError as ex:
         raise OurAssertionError(ex)
 
+def assert_1d_cont_dist_approx_emp(sample_fn,
+                                   log_q_fn,
+                                   grid_min,
+                                   grid_max,
+                                   grid_n,
+                                   ntries=5,
+                                   nsamples=1000,
+                                   kl_places=3):
+    """
+    Let p(x) be a valid continous scalar probability distribution, where q(x)
+    \propto p(x) (p(x) is known up to the normalization constant)
+
+    Assert that sample_fn produces samples from p(x) in the range of [grid_min,
+    grid_max]
+
+    This works by creating a grid of np.linspace(grid_min, grid_max, grid_n),
+    evaluating log q(x) over the (midpoints of the) grid, and then creating
+    a discrete distribution.  The same grid is then used to create a histogram
+    from the outputs of sample_fn.
+
+    The KL divergence of these two discrete probability distributions is then
+    compared.
+    """
+
+    if grid_min >= grid_max:
+        raise ValueError("invalid grid specified")
+    if grid_n <= 1:
+        raise ValueError("empty grid")
+
+    # create the "true" distribution from log_q_fn
+    grid = np.linspace(grid_min, grid_max, grid_n)
+    points = (grid[1:] + grid[:-1])/2.
+    true_dist = np.array([log_q_fn(pt) for pt in points])
+    true_dist = scores_to_probs(true_dist)
+
+    def discrete_sample_fn():
+        sample = sample_fn()
+        idx = np.searchsorted(grid, sample)
+        if idx == 0:
+            return 0
+        if idx == grid_n:
+            return idx - 2
+        return idx - 1
+
+    assert_discrete_dist_approx(discrete_sample_fn,
+                                true_dist,
+                                ntries,
+                                nsamples,
+                                kl_places)
+
 def assert_1d_cont_dist_approx_sps(sample_fn,
                                    rv,
                                    support=None,

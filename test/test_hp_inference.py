@@ -32,6 +32,7 @@ except ImportError:
 
 import itertools as it
 
+from test_utils import OurAssertionError, our_assert_almost_equals, assert_1d_cont_dist_approx_emp
 from nose.plugins.attrib import attr
 
 def _bb_hyperprior_pdf(hp):
@@ -99,20 +100,23 @@ def _add_to_grid(xv, yv, z, value):
     z[yidx, xidx] += 1
     return True
 
-def _test_hp_inference(
-    initialize_fn,
-    prior_fn,
-    grid_min,
-    grid_max,
-    grid_n,
-    dataview,
-    bind_fn,
-    init_inf_kernel_state_fn,
-    inf_kernel_fn,
-    map_actual_postprocess_fn,
-    grid_filename,
-    prng,
-    burnin=1000, nsamples=1000, skip=10, trials=5, tol=0.1):
+def _test_hp_inference(initialize_fn,
+                       prior_fn,
+                       grid_min,
+                       grid_max,
+                       grid_n,
+                       dataview,
+                       bind_fn,
+                       init_inf_kernel_state_fn,
+                       inf_kernel_fn,
+                       map_actual_postprocess_fn,
+                       grid_filename,
+                       prng,
+                       burnin=1000,
+                       nsamples=1000,
+                       skip=10,
+                       trials=5,
+                       tol=0.1):
 
     print '_test_hp_inference: burnin', burnin, 'nsamples', nsamples, 'skip', skip, 'trials', trials, 'tol', tol
 
@@ -347,6 +351,148 @@ def test_kernel_slice_hp_noninform_cxx():
                           kernel_fn,
                           'grid_slice_hp_noninform_cxx_samples.pdf',
                           rng())
+
+def _test_cluster_hp_inference(initialize_fn,
+                               prior_fn,
+                               grid_min,
+                               grid_max,
+                               grid_n,
+                               dataview,
+                               bind_fn,
+                               init_inf_kernel_state_fn,
+                               inf_kernel_fn,
+                               map_actual_postprocess_fn,
+                               prng,
+                               burnin=1000,
+                               nsamples=1000,
+                               skip=10,
+                               trials=100,
+                               places=2):
+    print '_test_cluster_hp_inference: burnin', burnin, 'nsamples', nsamples, \
+            'skip', skip, 'trials', trials, 'places', places
+
+    N = 1000
+    D = 5
+
+    # create random binary data, doesn't really matter what the values are
+    Y = np.random.random(size=(N, D)) < 0.5
+    Y = np.array([tuple(y) for y in Y], dtype=[('', np.bool)]*D)
+    view = dataview(Y)
+
+    defn = model_definition(N, [bb]*D)
+    latent = initialize_fn(defn, view, r=prng)
+    model = bind_fn(latent, view)
+
+    def score_alpha(alpha):
+        prev_alpha = latent.get_cluster_hp()['alpha']
+        latent.set_cluster_hp({'alpha':alpha})
+        score = prior_fn(alpha) + latent.score_assignment()
+        latent.set_cluster_hp({'alpha':prev_alpha})
+        return score
+
+    def sample_fn():
+        for _ in xrange(skip-1):
+            inf_kernel_fn(model, opaque, prng)
+        inf_kernel_fn(model, opaque, prng)
+        return latent.get_cluster_hp()['alpha']
+
+    alpha0 = np.random.uniform(grid_min, grid_max)
+    print 'start alpha:', alpha0
+    latent.set_cluster_hp({'alpha':alpha0})
+
+    opaque = init_inf_kernel_state_fn(latent)
+    for _ in xrange(burnin):
+        inf_kernel_fn(model, opaque, prng)
+    print 'finished burnin of', burnin, 'iterations'
+
+    print 'grid_min', grid_min, 'grid_max', grid_max
+    assert_1d_cont_dist_approx_emp(sample_fn,
+                                   score_alpha,
+                                   grid_min,
+                                   grid_max,
+                                   grid_n,
+                                   trials,
+                                   nsamples,
+                                   places)
+
+    # MAP estimation over a large range doesn't really work
+    #alpha_grid = np.linspace(grid_min, grid_max, grid_n)
+    #alpha_scores = np.array(map(score_alpha, alpha_grid))
+    #alpha_grid_map_idx = np.argmax(alpha_scores)
+    #alpha_grid_map = alpha_grid[alpha_grid_map_idx]
+    #alpha_grid_map_postproc = map_actual_postprocess_fn(alpha_grid_map)
+    #print 'alpha MAP:', alpha_grid_map, \
+    #      'alpha MAP postproc:', alpha_grid_map_postproc
+
+    #alpha0 = np.random.uniform(grid_min, grid_max)
+    #print 'start alpha:', alpha0
+    #latent.set_cluster_hp({'alpha':alpha0})
+
+    #opaque = init_inf_kernel_state_fn(latent)
+    #for _ in xrange(burnin):
+    #    inf_kernel_fn(model, opaque, prng)
+    #print 'finished burnin of', burnin, 'iterations'
+
+    #def posterior(k, skip):
+    #    for _ in xrange(k):
+    #        for _ in xrange(skip-1):
+    #            inf_kernel_fn(model, opaque, prng)
+    #        inf_kernel_fn(model, opaque, prng)
+    #        yield latent.get_cluster_hp()['alpha']
+
+    #bins = np.zeros(grid_n, dtype=np.int)
+    #while 1:
+    #    for sample in posterior(nsamples, skip):
+    #        idx = min(np.searchsorted(alpha_grid, sample), grid_n-1)
+    #        bins[idx] += 1
+    #    est_map = alpha_grid[np.argmax(bins)]
+    #    try:
+    #        our_assert_almost_equals(est_map, alpha_grid_map, places=places)
+    #        return # success
+    #    except OurAssertionError as ex:
+    #        print 'warning:', ex._ex.message
+    #        trials -= 1
+    #        if not trials:
+    #            raise ex._ex
+
+@attr('slow')
+def test_kernel_slice_cluster_hp_py():
+    prior_fn = log_exponential(1.5)
+    def init_inf_kernel_state_fn(s):
+        cparam = {'alpha':(prior_fn, 1.)}
+        return cparam
+    kernel_fn = lambda s, arg, rng: py_slice_hp(s, rng, cparam=arg)
+    grid_min, grid_max, grid_n = 0.0, 50., 100
+    _test_cluster_hp_inference(py_initialize,
+                               prior_fn,
+                               grid_min,
+                               grid_max,
+                               grid_n,
+                               py_numpy_dataview,
+                               py_bind,
+                               init_inf_kernel_state_fn,
+                               kernel_fn,
+                               map_actual_postprocess_fn=lambda x: x,
+                               prng=None)
+
+def test_kernel_slice_cluster_hp_cxx():
+    prior_fn = log_exponential(1.5)
+    def init_inf_kernel_state_fn(s):
+        cparam = {'alpha':(prior_fn, 1.)}
+        return cparam
+    kernel_fn = lambda s, arg, rng: cxx_slice_hp(s, rng, cparam=arg)
+    grid_min, grid_max, grid_n = 0.0, 50., 100
+    _test_cluster_hp_inference(cxx_initialize,
+                               prior_fn,
+                               grid_min,
+                               grid_max,
+                               grid_n,
+                               cxx_numpy_dataview,
+                               cxx_bind,
+                               init_inf_kernel_state_fn,
+                               kernel_fn,
+                               map_actual_postprocess_fn=lambda x: x,
+                               prng=rng())
 
 #@attr('slow')
 #def test_kernel_mh_hp():
