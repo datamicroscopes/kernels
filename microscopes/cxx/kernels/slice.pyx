@@ -21,9 +21,10 @@ from microscopes.cxx.common._rng cimport rng
 
 # python imports
 from microscopes.py.kernels.slice import _parse_descriptor
+from microscopes.common import validator
 
 def sample(scalar_function func, float x0, float w, rng r):
-    assert r
+    validator.validate_not_none(r, "r")
     return c_sample_1d(func._func, x0, w, r._thisptr[0])
 
 def hp(fixed_entity_based_state_object s, rng r, cparam=None, hparams=None):
@@ -42,7 +43,7 @@ def hp(fixed_entity_based_state_object s, rng r, cparam=None, hparams=None):
     }
     hp(s, None, hparams, r)
     """
-    assert r
+    validator.validate_not_none(r, "r")
 
     # XXX: None should indicate use a sane default
     if cparam is None:
@@ -60,16 +61,13 @@ def hp(fixed_entity_based_state_object s, rng r, cparam=None, hparams=None):
         if not hasattr(update_descs, '__iter__'):
             update_descs = [update_descs]
         buf1.clear()
-        for update_desc in update_descs: 
+        for update_desc in update_descs:
             key, idx = _parse_descriptor(update_desc, default=0)
             buf1.push_back(slice_update_param_t(key, idx))
-        if not isinstance(prior, scalar_function):
-            raise ValueError(
-                "expected scalar_function, got {}".format(repr(prior)))
-        if w <= 0.:
-            raise ValueError("w needs to be positive real")
+        validator.validate_type(prior, scalar_function)
+        validator.validate_positive(w)
         c_cparam.push_back(
-            slice_hp_param_t(   
+            slice_hp_param_t(
                 buf1,
                 (<scalar_function>prior)._func,
                 w))
@@ -80,16 +78,13 @@ def hp(fixed_entity_based_state_object s, rng r, cparam=None, hparams=None):
             if not hasattr(update_descs, '__iter__'):
                 update_descs = [update_descs]
             buf1.clear()
-            for update_desc in update_descs: 
+            for update_desc in update_descs:
                 key, idx = _parse_descriptor(update_desc, default=0)
                 buf1.push_back(slice_update_param_t(key, idx))
-            if not isinstance(prior, scalar_function):
-                raise ValueError(
-                    "expected scalar_function, got {}".format(repr(prior)))
-            if w <= 0.:
-                raise ValueError("w needs to be positive real")
+            validator.validate_type(prior, scalar_function)
+            validator.validate_positive(w)
             buf0.push_back(
-                slice_hp_param_t(   
+                slice_hp_param_t(
                     buf1,
                     (<scalar_function>prior)._func,
                     w))
@@ -98,7 +93,7 @@ def hp(fixed_entity_based_state_object s, rng r, cparam=None, hparams=None):
     c_hp(s._thisptr.get()[0], c_cparam, c_hparams, r._thisptr[0])
 
 def theta(fixed_entity_based_state_object s, rng r, tparams=None):
-    assert r
+    validator.validate_not_none(r, "r")
     # XXX: None should indicate use a sane default
     if tparams is None:
         tparams = {}
