@@ -25,9 +25,9 @@ before_install:
   - export CXX=g++-4.8
   - printenv
   - mkdir .travis
-  - cd .travis && git clone https://github.com/datamicroscopes/common.git && cd common && make travis_install
-  - cd .travis && git clone https://github.com/datamicroscopes/mixturemodel.git && cd mixturemodel && make travis_install
-  - cd .travis && git clone https://github.com/datamicroscopes/irm.git && cd irm && make travis_install
+  - (cd .travis && git clone https://github.com/datamicroscopes/common.git && cd common && make travis_install)
+  - (cd .travis && git clone https://github.com/datamicroscopes/mixturemodel.git && cd mixturemodel && make travis_install)
+  - (cd .travis && git clone https://github.com/datamicroscopes/irm.git && cd irm && make travis_install)
 
 install: make travis_install 
 
