@@ -200,11 +200,18 @@ extensions = cythonize([
     make_extension('microscopes.cxx.kernels.slice'),
 ], include_path=[microscopes_common_cython_inc])
 
+with open('README.md') as f:
+    long_description = f.read()
+
 setup(
     version=version,
     name='microscopes-kernels',
-    description='XYZ',
-    long_description='XYZ long',
+    description='Non-parametric bayesian inference',
+    long_description=long_description,
+    url='https://github.com/datamicroscopes/kernels',
+    author='Stephen Tu, Eric Jonas',
+    maintainer='Stephen Tu',
+    maintainer_email='tu.stephenl@gmail.com',
     packages=(
         'microscopes.kernels',
         'microscopes.cxx.kernels',
