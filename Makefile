@@ -30,5 +30,4 @@ travis_install:
 
 .PHONY: travis_script
 travis_script: 
-	(cd relwithdebinfo && CTEST_OUTPUT_ON_FAILURE=true make test)
 	(cd test && nosetests --verbose -a '!slow')
