@@ -20,7 +20,6 @@ import time
 import os
 
 from nose.plugins.attrib import attr
-from PIL import Image, ImageOps
 
 def _get_mnist_dataset():
     return fetch_mldata('MNIST original')
@@ -156,6 +155,7 @@ def test_mnist_supervised():
 @attr('slow')
 def test_mnist():
     import matplotlib.pylab as plt
+    from PIL import Image, ImageOps
     mnist_dataset = _get_mnist_dataset()
     Y_2 = mnist_dataset['data'][np.where(mnist_dataset['target'] == 2.)[0]]
     Y_3 = mnist_dataset['data'][np.where(mnist_dataset['target'] == 3.)[0]]
