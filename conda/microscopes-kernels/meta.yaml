@@ -12,18 +12,17 @@ requirements:
     - numpy
     - cython 0.20.2
     - distributions
-    - microscopes-common
-    - microscopes-mixturemodel
     - libprotobuf
+    - eigen3
+    - microscopes-common
   run:
     - python
     - numpy
     - scipy
     - distributions
-    - microscopes-common
-    - microscopes-mixturemodel
     - libprotobuf
     - protobuf
+    - microscopes-common
 
 test:
   imports:
