@@ -2,7 +2,6 @@ from libcpp.vector cimport vector
 from libcpp.utility cimport pair
 from libc.stddef cimport size_t
 
-from microscopes.cxx.mixture._model_h cimport state
 from microscopes.cxx.common._entity_state_h cimport \
         fixed_entity_based_state_object, entity_based_state_object
 from microscopes.cxx.common._random_fwd_h cimport rng_t
