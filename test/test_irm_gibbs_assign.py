@@ -7,7 +7,7 @@ from microscopes.cxx.mixture.model import \
         initialize as mm_initialize, \
         bind as mm_bind
 from microscopes.cxx.common.rng import rng
-from microscopes.cxx.common.sparse_ndarray.dataview import \
+from microscopes.cxx.common.relation.dataview import \
         numpy_dataview as spnd_numpy_dataview
 from microscopes.cxx.common.recarray.dataview import \
         numpy_dataview as rec_numpy_dataview

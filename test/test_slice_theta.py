@@ -5,7 +5,7 @@ from microscopes.cxx.irm.model import \
         initialize as irm_initialize, bind as irm_bind
 from microscopes.cxx.common.recarray.dataview import \
         numpy_dataview as mm_numpy_dataview
-from microscopes.cxx.common.sparse_ndarray.dataview import \
+from microscopes.cxx.common.relation.dataview import \
         numpy_dataview as irm_numpy_dataview
 from microscopes.cxx.common.rng import rng
 from microscopes.models import bbnc
