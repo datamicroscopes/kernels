@@ -8,11 +8,12 @@ from microscopes.cxx.mixture.model import \
         bind as mm_bind
 from microscopes.cxx.common.rng import rng
 from microscopes.cxx.common.relation.dataview import \
-        numpy_dataview as spnd_numpy_dataview
+        numpy_dataview as relation_numpy_dataview, \
+        sparse_2d_dataview as sparse_relation_dataview
 from microscopes.cxx.common.recarray.dataview import \
         numpy_dataview as rec_numpy_dataview
 
-from microscopes.models import bb, bbnc
+from microscopes.models import bb, bbnc, gp
 from microscopes.cxx.kernels.gibbs import assign, assign_resample
 from microscopes.cxx.kernels.slice import theta
 
@@ -22,16 +23,31 @@ import numpy as np
 import numpy.ma as ma
 
 import itertools as it
+import operator as op
 import time
+
+from scipy.sparse import coo_matrix
 
 from nose.tools import assert_almost_equals
 from nose.plugins.attrib import attr
 from test_utils import \
+        assert_1d_lists_almost_equals, \
         assert_discrete_dist_approx, \
         permutation_iter, \
         permutation_canonical, \
         scores_to_probs, \
         dist_on_all_clusterings
+
+def _tocsr(raw):
+    n, m = raw.shape
+    def indices():
+        for i, j in it.product(range(n), range(m)):
+            if not raw.mask[i, j]:
+                yield i, j
+    data = [raw[i, j] for i, j in indices()]
+    i = list(map(op.itemgetter(0), indices()))
+    j = list(map(op.itemgetter(1), indices()))
+    return coo_matrix((data, (i, j)), shape=raw.shape).tocsr()
 
 def test_compare_to_mixture_model():
     r = rng()
@@ -42,7 +58,7 @@ def test_compare_to_mixture_model():
     Y_rec = np.array([tuple(y) for y in Y], dtype=[('',bool)]*D)
 
     mm_view = rec_numpy_dataview(Y_rec)
-    irm_view = spnd_numpy_dataview(Y)
+    irm_view = relation_numpy_dataview(Y)
 
     mm_def = mm_definition(N, [bb]*D)
     irm_def = irm_definition([N, D], [((0,1),bb)])
@@ -97,6 +113,41 @@ def test_compare_to_mixture_model():
     # XXX: should really normalize and then check
     for a, b in zip(y0, y1):
         assert_almost_equals(a, b, places=2)
+
+def test_dense_vs_sparse():
+    # XXX: really belongs in irm test cases, but kernels has a nice cluster
+    # enumeration iterator
+
+    r = rng()
+
+    n = 5
+    raw = ma.array(
+        np.random.choice(np.arange(20), size=(n, n)),
+        mask=np.random.choice([False, True], size=(n, n)))
+
+    dense = [relation_numpy_dataview(raw)]
+    sparse = [sparse_relation_dataview(_tocsr(raw))]
+
+    domains = [n]
+    relations = [((0, 0), gp)]
+    defn = irm_definition(domains, relations)
+
+    def score_fn(data):
+        def f(assignments):
+            s = irm_initialize(defn, data, r=r, domain_assignments=assignments)
+            assign = sum(s.score_assignment(i) for i in xrange(len(assignments)))
+            likelihood = s.score_likelihood(r)
+            return assign + likelihood
+        return f
+
+    product_assignments = tuple(map(list, map(permutation_iter, domains)))
+
+    dense_posterior = scores_to_probs(
+        np.array(map(score_fn(dense), it.product(*product_assignments))))
+    sparse_posterior = scores_to_probs(
+        np.array(map(score_fn(sparse), it.product(*product_assignments))))
+
+    assert_1d_lists_almost_equals(dense_posterior, sparse_posterior, places=3)
 
 def _test_convergence(domains,
                       data,
@@ -156,17 +207,28 @@ def test_one_binary():
     # 1 domain, 1 binary relation
     domains = [4]
     def mk_relations(model): return [((0,0), model)]
-    data = [spnd_numpy_dataview(
+    data = [relation_numpy_dataview(
         ma.array(
             np.random.choice([False, True], size=(domains[0], domains[0])),
             mask=np.random.choice([False, True], size=(domains[0], domains[0]))))]
+    _test_convergence(domains, data, mk_relations(bb), mk_relations(bb), assign)
+
+def test_one_binary_sparse():
+    # 1 domain, 1 binary relation
+    domains = [4]
+    def mk_relations(model): return [((0,0), model)]
+
+    raw = ma.array(
+        np.random.choice([False, True], size=(domains[0], domains[0])),
+        mask=np.random.choice([False, True], size=(domains[0], domains[0])))
+    data = [sparse_relation_dataview(_tocsr(raw))]
     _test_convergence(domains, data, mk_relations(bb), mk_relations(bb), assign)
 
 def test_one_binary_nonconj_kernel():
     # 1 domain, 1 binary relation
     domains = [4]
     def mk_relations(model): return [((0,0), model)]
-    data = [spnd_numpy_dataview(
+    data = [relation_numpy_dataview(
         ma.array(
             np.random.choice([False, True], size=(domains[0], domains[0])),
             mask=np.random.choice([False, True], size=(domains[0], domains[0]))))]
@@ -178,11 +240,11 @@ def test_two_binary():
     domains = [4]
     def mk_relations(model): return [((0,0), model), ((0,0), model)]
     data = [
-        spnd_numpy_dataview(
+        relation_numpy_dataview(
             ma.array(
                 np.random.choice([False, True], size=(domains[0], domains[0])),
                 mask=np.random.choice([False, True], size=(domains[0], domains[0])))),
-        spnd_numpy_dataview(
+        relation_numpy_dataview(
             ma.array(
                 np.random.choice([False, True], size=(domains[0], domains[0])),
                 mask=np.random.choice([False, True], size=(domains[0], domains[0])))),
@@ -194,11 +256,11 @@ def test_one_binary_one_ternary():
     domains = [4]
     def mk_relations(model): return [((0,0), model), ((0,0,0), model)]
     data = [
-        spnd_numpy_dataview(
+        relation_numpy_dataview(
             ma.array(
                 np.random.choice([False, True], size=(domains[0], domains[0])),
                 mask=np.random.choice([False, True], size=(domains[0], domains[0])))),
-        spnd_numpy_dataview(
+        relation_numpy_dataview(
             ma.array(
                 np.random.choice([False, True], size=(domains[0], domains[0], domains[0])),
                 mask=np.random.choice([False, True], size=(domains[0], domains[0], domains[0])))),
@@ -209,7 +271,7 @@ def test_one_binary_nonconj():
     # 1 domain, 1 binary relation, nonconj
     domains = [3]
     def mk_relations(model): return [((0,0), model)]
-    data = [spnd_numpy_dataview(
+    data = [relation_numpy_dataview(
         ma.array(
             np.random.choice([False, True], size=(domains[0], domains[0])),
             mask=np.random.random(size=(domains[0], domains[0]))>0.8))]
@@ -226,11 +288,11 @@ def test_two_domain_two_binary():
     domains = [3, 4]
     def mk_relations(model): return [((0,0), model), ((1,0), model)]
     data = [
-        spnd_numpy_dataview(
+        relation_numpy_dataview(
             ma.array(
                 np.random.choice([False, True], size=(domains[0], domains[0])),
                 mask=np.random.choice([False, True], size=(domains[0], domains[0])))),
-        spnd_numpy_dataview(
+        relation_numpy_dataview(
             ma.array(
                 np.random.choice([False, True], size=(domains[1], domains[0])),
                 mask=np.random.choice([False, True], size=(domains[1], domains[0])))),

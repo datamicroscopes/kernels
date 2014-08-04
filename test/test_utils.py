@@ -7,7 +7,12 @@ import numpy.ma as ma
 import itertools as it
 from microscopes.py.common.util import \
         KL_approx, KL_discrete, logsumexp
-from nose.tools import assert_almost_equals
+from nose.tools import assert_equals, assert_almost_equals
+
+def assert_1d_lists_almost_equals(first, second, places=None, msg=None, delta=None):
+    assert_equals(len(first), len(second), msg=msg)
+    for i, j in zip(first, second):
+        assert_almost_equals(i, j, places=places, msg=msg, delta=delta)
 
 class OurAssertionError(Exception):
     def __init__(self, ex):
