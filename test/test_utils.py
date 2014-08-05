@@ -31,7 +31,8 @@ def assert_1d_cont_dist_approx_emp(sample_fn,
                                    grid_n,
                                    ntries=5,
                                    nsamples=1000,
-                                   kl_places=3):
+                                   kl_places=3,
+                                   smoothing=1e-5):
     """
     Let p(x) be a valid continous scalar probability distribution, where q(x)
     \propto p(x) (p(x) is known up to the normalization constant)
@@ -52,11 +53,15 @@ def assert_1d_cont_dist_approx_emp(sample_fn,
         raise ValueError("invalid grid specified")
     if grid_n <= 1:
         raise ValueError("empty grid")
+    if smoothing < 0.:
+        raise ValueError("smoothing needs to be non-negative")
 
     # create the "true" distribution from log_q_fn
     grid = np.linspace(grid_min, grid_max, grid_n)
     points = (grid[1:] + grid[:-1])/2.
-    true_dist = np.array([log_q_fn(pt) for pt in points])
+
+    # multiplicative smoothing (multiplying by ~1)
+    true_dist = np.array([log_q_fn(pt) for pt in points]) + smoothing
     true_dist = scores_to_probs(true_dist)
 
     def discrete_sample_fn():

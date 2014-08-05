@@ -8,12 +8,12 @@ from microscopes.cxx.kernels.slice import hp as cxx_slice_hp
 
 from microscopes.cxx.common.rng import rng
 from microscopes.cxx.common.scalar_functions import \
-    log_exponential, log_noninformative_beta_prior
+    log_exponential, log_noninformative_beta_prior, log_normal
 
 from microscopes.py.common.recarray.dataview import numpy_dataview as py_numpy_dataview
 from microscopes.cxx.common.recarray.dataview import numpy_dataview as cxx_numpy_dataview
 
-from microscopes.models import bb
+from microscopes.models import bb, bnb, gp, nich
 from microscopes.mixture.definition import model_definition
 
 from microscopes.py.common.util import almost_eq
@@ -493,6 +493,149 @@ def test_kernel_slice_cluster_hp_cxx():
                                kernel_fn,
                                map_actual_postprocess_fn=lambda x: x,
                                prng=rng())
+
+def _test_scalar_hp_inference(view,
+                              prior_fn,
+                              w,
+                              grid_min,
+                              grid_max,
+                              grid_n,
+                              likelihood_model,
+                              scalar_hp_key,
+                              burnin=1000,
+                              nsamples=1000,
+                              every=10,
+                              trials=100,
+                              places=2):
+    """
+    view must be 1D
+    """
+    r = rng()
+
+    hparams = {0:{scalar_hp_key : (prior_fn, w)}}
+
+    def score_fn(scalar):
+        d = latent.get_feature_hp(0)
+        prev_scalar = d[scalar_hp_key]
+        d[scalar_hp_key] = scalar
+        latent.set_feature_hp(0, d)
+        score = prior_fn(scalar) + latent.score_data(0, None, r)
+        d[scalar_hp_key] = prev_scalar
+        latent.set_feature_hp(0, d)
+        return score
+
+    defn = model_definition(len(view), [likelihood_model])
+    latent = cxx_initialize(defn, view, r=r)
+    model = cxx_bind(latent, view)
+
+    def sample_fn():
+        for _ in xrange(every):
+            cxx_slice_hp(model, r, hparams=hparams)
+        return latent.get_feature_hp(0)[scalar_hp_key]
+
+    for _ in xrange(burnin):
+        cxx_slice_hp(model, r, hparams=hparams)
+    print 'finished burnin of', burnin, 'iterations'
+
+    print 'grid_min', grid_min, 'grid_max', grid_max
+    assert_1d_cont_dist_approx_emp(sample_fn,
+                                   score_fn,
+                                   grid_min,
+                                   grid_max,
+                                   grid_n,
+                                   trials,
+                                   nsamples,
+                                   places)
+
+def test_bnb_hp_alpha():
+    N = 1000
+    Y = np.array([(x,) for x in np.random.randint(low=0, high=10, size=N)],
+            dtype=[('',np.bool)])
+    view = cxx_numpy_dataview(Y)
+    grid_min, grid_max, grid_n = 0.01, 5.0, 100
+    _test_scalar_hp_inference(view,
+                              log_exponential(1.),
+                              1.,
+                              grid_min,
+                              grid_max,
+                              grid_n,
+                              bnb,
+                              'alpha')
+
+def test_bnb_hp_beta():
+    N = 1000
+    Y = np.array([(x,) for x in np.random.randint(low=0, high=10, size=N)],
+            dtype=[('',np.bool)])
+    view = cxx_numpy_dataview(Y)
+    grid_min, grid_max, grid_n = 0.01, 5.0, 100
+    _test_scalar_hp_inference(view,
+                              log_exponential(1.),
+                              1.,
+                              grid_min,
+                              grid_max,
+                              grid_n,
+                              bnb,
+                              'beta')
+
+def test_gp_hp_alpha():
+    N = 1000
+    Y = np.array([(x,) for x in np.random.randint(low=0, high=10, size=N)],
+            dtype=[('',np.bool)])
+    view = cxx_numpy_dataview(Y)
+    grid_min, grid_max, grid_n = 0.01, 5.0, 100
+    _test_scalar_hp_inference(view,
+                              log_exponential(1.),
+                              1.,
+                              grid_min,
+                              grid_max,
+                              grid_n,
+                              gp,
+                              'alpha')
+
+def test_gp_hp_inv_beta():
+    N = 1000
+    Y = np.array([(x,) for x in np.random.randint(low=0, high=10, size=N)],
+            dtype=[('',np.bool)])
+    view = cxx_numpy_dataview(Y)
+    grid_min, grid_max, grid_n = 0.001, 2.0, 100
+    _test_scalar_hp_inference(view,
+                              log_exponential(1.),
+                              0.1,
+                              grid_min,
+                              grid_max,
+                              grid_n,
+                              gp,
+                              'inv_beta')
+
+def test_nich_hp_mu():
+    N = 1000
+    Y = np.array([(x,) for x in np.random.uniform(low=-10, high=10, size=N)],
+            dtype=[('',np.float32)])
+    view = cxx_numpy_dataview(Y)
+    grid_min, grid_max, grid_n = -5., 5., 100
+    _test_scalar_hp_inference(view,
+                              log_normal(0., 1.),
+                              0.1,
+                              grid_min,
+                              grid_max,
+                              grid_n,
+                              nich,
+                              'mu')
+
+def test_nich_hp_sigmasq():
+    N = 1000
+    Y = np.array([(x,) for x in np.random.uniform(low=-1, high=1, size=N)],
+            dtype=[('',np.float32)])
+    view = cxx_numpy_dataview(Y)
+    grid_min, grid_max, grid_n = 0.0001, 1.0, 100
+    _test_scalar_hp_inference(view,
+                              log_exponential(1.),
+                              0.1,
+                              grid_min,
+                              grid_max,
+                              grid_n,
+                              nich,
+                              'sigmasq')
 
 #@attr('slow')
 #def test_kernel_mh_hp():
