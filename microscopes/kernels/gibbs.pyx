@@ -3,23 +3,23 @@ from libcpp.vector cimport vector
 from libcpp.utility cimport pair
 from libc.stddef cimport size_t
 
-from microscopes.cxx.kernels._gibbs_h cimport \
+from microscopes.kernels._gibbs_h cimport \
         assign_fixed as c_assign_fixed, \
         assign as c_assign, \
         assign_resample as c_assign_resample, \
         hp as c_hp, \
         perftest as c_perftest, \
         grid_t
-from microscopes.cxx.common._entity_state cimport \
+from microscopes.common._entity_state cimport \
         fixed_entity_based_state_object, \
         entity_based_state_object
-from microscopes.cxx.common._rng cimport rng
-from microscopes.cxx.common._typedefs_h cimport hyperparam_bag_t
-from microscopes.cxx._models_h cimport hypers_shared_ptr, hypers_raw_ptr
-from microscopes.cxx._models cimport _base
+from microscopes.common._rng cimport rng
+from microscopes.common._typedefs_h cimport hyperparam_bag_t
+from microscopes._models_h cimport hypers_shared_ptr, hypers_raw_ptr
+from microscopes._models cimport _base
 
 # python imports
-from microscopes.cxx._models import _base
+from microscopes._models import _base
 from microscopes.common import validator
 
 def assign_fixed(fixed_entity_based_state_object s, rng r):

@@ -196,8 +196,8 @@ def make_extension(module_name):
         extra_link_args=extra_link_args)
 
 extensions = cythonize([
-    make_extension('microscopes.cxx.kernels.gibbs'),
-    make_extension('microscopes.cxx.kernels.slice'),
+    make_extension('microscopes.kernels.gibbs'),
+    make_extension('microscopes.kernels.slice'),
 ], include_path=[microscopes_common_cython_inc])
 
 with open('README.md') as f:
@@ -214,7 +214,5 @@ setup(
     maintainer_email='tu.stephenl@gmail.com',
     packages=(
         'microscopes.kernels',
-        'microscopes.cxx.kernels',
-        'microscopes.py.kernels',
     ),
     ext_modules=extensions)

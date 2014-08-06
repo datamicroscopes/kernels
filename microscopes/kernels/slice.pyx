@@ -4,7 +4,7 @@ from libcpp.utility cimport pair
 from libcpp.map cimport map
 from libc.stddef cimport size_t
 
-from microscopes.cxx.kernels._slice_h cimport \
+from microscopes.kernels._slice_h cimport \
         hp as c_hp, \
         theta as c_theta, \
         slice_update_param_t, \
@@ -14,14 +14,21 @@ from microscopes.cxx.kernels._slice_h cimport \
         slice_theta_t, \
         sample_1d as c_sample_1d
 
-from microscopes.cxx.common._entity_state cimport \
+from microscopes.common._entity_state cimport \
         fixed_entity_based_state_object
-from microscopes.cxx.common._scalar_functions cimport scalar_function
-from microscopes.cxx.common._rng cimport rng
+from microscopes.common._scalar_functions cimport scalar_function
+from microscopes.common._rng cimport rng
 
 # python imports
-from microscopes.py.kernels.slice import _parse_descriptor
 from microscopes.common import validator
+import re
+
+_desc_regex = re.compile(r'(.+)\[(\d+)\]$')
+def _parse_descriptor(desc, default=None):
+    m = _desc_regex.match(desc)
+    if not m:
+        return desc, default
+    return m.group(1), int(m.group(2))
 
 def sample(scalar_function func, float x0, float w, rng r):
     validator.validate_not_none(r, "r")

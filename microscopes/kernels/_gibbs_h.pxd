@@ -2,10 +2,10 @@ from libcpp.vector cimport vector
 from libcpp.utility cimport pair
 from libc.stddef cimport size_t
 
-from microscopes.cxx.common._entity_state_h cimport \
+from microscopes.common._entity_state_h cimport \
         fixed_entity_based_state_object, entity_based_state_object
-from microscopes.cxx.common._random_fwd_h cimport rng_t
-from microscopes.cxx._models_h cimport hypers_raw_ptr
+from microscopes.common._random_fwd_h cimport rng_t
+from microscopes._models_h cimport hypers_raw_ptr
 
 cdef extern from "microscopes/kernels/gibbs.hpp" namespace "microscopes::kernels::gibbs":
     ctypedef vector[pair[hypers_raw_ptr, float]] grid_t

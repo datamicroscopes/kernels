@@ -5,7 +5,7 @@ routines to make writing test cases less painful
 import numpy as np
 import numpy.ma as ma
 import itertools as it
-from microscopes.py.common.util import \
+from microscopes.common.util import \
         KL_approx, KL_discrete, logsumexp
 from nose.tools import assert_equals, assert_almost_equals
 

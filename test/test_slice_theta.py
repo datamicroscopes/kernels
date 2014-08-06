@@ -1,20 +1,20 @@
-from microscopes.cxx.kernels.slice import theta
-from microscopes.cxx.mixture.model import \
+from microscopes.kernels.slice import theta
+from microscopes.mixture.model import \
         initialize as mm_initialize, bind as mm_bind
-from microscopes.cxx.irm.model import \
+from microscopes.irm.model import \
         initialize as irm_initialize, bind as irm_bind
-from microscopes.cxx.common.recarray.dataview import \
+from microscopes.common.recarray.dataview import \
         numpy_dataview as mm_numpy_dataview
-from microscopes.cxx.common.relation.dataview import \
+from microscopes.common.relation.dataview import \
         numpy_dataview as irm_numpy_dataview
-from microscopes.cxx.common.rng import rng
+from microscopes.common.rng import rng
 from microscopes.models import bbnc
 from microscopes.mixture.definition import \
         model_definition as mm_model_definition
 from microscopes.irm.definition import \
         model_definition as irm_model_definition
 
-from microscopes.py.common.util import KL_approx
+from microscopes.common.util import KL_approx
 from test_utils import assert_1d_cont_dist_approx_sps
 from scipy.stats import beta
 

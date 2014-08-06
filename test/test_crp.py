@@ -4,16 +4,12 @@
 # sorts of nice permutation utilities (which should be moved to a separate util
 # file)
 
-from microscopes.py.mixture.model import \
-        initialize as py_initialize
-from microscopes.py.common.recarray.dataview import \
-        numpy_dataview as py_numpy_dataview
-from microscopes.cxx.mixture.model import \
+from microscopes.mixture.model import \
         initialize as cxx_initialize
-from microscopes.cxx.common.recarray.dataview import \
+from microscopes.common.recarray.dataview import \
         numpy_dataview as cxx_numpy_dataview
 
-from microscopes.cxx.common.rng import rng
+from microscopes.common.rng import rng
 from microscopes.models import bb
 from microscopes.mixture.definition import model_definition
 from distributions.dbg.random import sample_discrete
@@ -68,10 +64,6 @@ def _test_crp(initialize_fn, dataview, alpha, r):
     dist = np.array(list(map(crp_score, permutation_iter(N))))
     dist = np.exp(dist)
     assert_almost_equals(dist.sum(), 1.0, places=3)
-
-def test_crp_py():
-    for alpha in (0.1, 1.0, 10.0):
-        _test_crp(py_initialize, py_numpy_dataview, alpha=alpha, r=None)
 
 def test_crp_cxx():
     for alpha in (0.1, 1.0, 10.0):

@@ -1,8 +1,7 @@
-from microscopes.py.kernels.slice import sample as py_slice_sample
-from microscopes.cxx.kernels.slice import sample as cxx_slice_sample
-from microscopes.cxx.common.scalar_functions import log_normal
-from microscopes.cxx.common.rng import rng
-from microscopes.py.common.util import KL_approx
+from microscopes.kernels.slice import sample as cxx_slice_sample
+from microscopes.common.scalar_functions import log_normal
+from microscopes.common.rng import rng
+from microscopes.common.util import KL_approx
 
 import numpy as np
 
@@ -40,9 +39,6 @@ def _test_gauss(slice_sample_fn, prng):
 
     assert kldiff  <= 0.005
     assert maxdiff <= 0.005
-
-def test_gauss_py():
-    _test_gauss(py_slice_sample, None)
 
 def test_gauss_cxx():
     import time

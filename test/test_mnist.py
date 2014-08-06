@@ -1,10 +1,10 @@
-from microscopes.cxx.common.recarray.dataview import numpy_dataview
-from microscopes.cxx.common.rng import rng
-from microscopes.cxx.common.scalar_functions import log_exponential
-from microscopes.cxx.mixture.model import initialize, bind
-from microscopes.cxx.kernels.gibbs import assign
-from microscopes.cxx.kernels.slice import hp
-from microscopes.py.common.util import mkdirp
+from microscopes.common.recarray.dataview import numpy_dataview
+from microscopes.common.rng import rng
+from microscopes.common.scalar_functions import log_exponential
+from microscopes.mixture.model import initialize, bind
+from microscopes.kernels.gibbs import assign
+from microscopes.kernels.slice import hp
+from microscopes.common.util import mkdirp
 from microscopes.models import bb, dd
 from microscopes.mixture.definition import model_definition
 

@@ -1,6 +1,6 @@
 from scipy.stats import norm
-from microscopes.py.kernels.mh import mh_sample
-from microscopes.py.common.util import KL_approx
+from microscopes.kernels.mh import sample
+from microscopes.common.util import KL_approx
 
 import numpy as np
 
@@ -17,7 +17,7 @@ def test_gauss():
     def sampler(x0, niters):
         x = x0
         for _ in xrange(niters):
-            x = mh_sample(x, pdf, condpdf, condsamp)
+            x = sample(x, pdf, condpdf, condsamp)
             yield x
 
     bins = np.linspace(-3, 3, 1000)

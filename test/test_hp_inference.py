@@ -1,23 +1,17 @@
-from microscopes.py.mixture.model import initialize as py_initialize, bind as py_bind
-from microscopes.py.kernels.gibbs import hp as py_gibbs_hp
-from microscopes.py.kernels.slice import hp as py_slice_hp
+from microscopes.mixture.model import initialize as cxx_initialize, bind as cxx_bind
+from microscopes.kernels.gibbs import hp as cxx_gibbs_hp
+from microscopes.kernels.slice import hp as cxx_slice_hp
 
-from microscopes.cxx.mixture.model import initialize as cxx_initialize, bind as cxx_bind
-from microscopes.cxx.kernels.gibbs import hp as cxx_gibbs_hp
-from microscopes.cxx.kernels.slice import hp as cxx_slice_hp
-
-from microscopes.cxx.common.rng import rng
-from microscopes.cxx.common.scalar_functions import \
+from microscopes.common.rng import rng
+from microscopes.common.scalar_functions import \
     log_exponential, log_noninformative_beta_prior, log_normal
 
-from microscopes.py.common.recarray.dataview import numpy_dataview as py_numpy_dataview
-from microscopes.cxx.common.recarray.dataview import numpy_dataview as cxx_numpy_dataview
+from microscopes.common.recarray.dataview import numpy_dataview as cxx_numpy_dataview
 
 from microscopes.models import bb, bnb, gp, nich
 from microscopes.mixture.definition import model_definition
 
-from microscopes.py.common.util import almost_eq
-#from microscopes.py.kernels.mh import mh_hp
+from microscopes.common.util import almost_eq
 
 import numpy as np
 import math
@@ -223,21 +217,12 @@ def _test_kernel_gibbs_hp(initialize_fn, dataview, bind_fn, gibbs_hp_fn, fname, 
         trials=10,
         nsamples=100)
 
-@attr('slow')
-def test_kernel_gibbs_hp_py():
-    _test_kernel_gibbs_hp(py_initialize,
-                          py_numpy_dataview,
-                          py_bind,
-                          py_gibbs_hp,
-                          'grid_gibbs_hp_samples_py.pdf',
-                          prng=None)
-
 def test_kernel_gibbs_hp_cxx():
     _test_kernel_gibbs_hp(cxx_initialize,
                           cxx_numpy_dataview,
                           cxx_bind,
                           cxx_gibbs_hp,
-                          'grid_gibbs_hp_samples_cxx.pdf',
+                          'grid_gibbs_hp_samples_pdf',
                           rng())
 
 def _test_kernel_slice_hp(initialize_fn,
@@ -266,29 +251,6 @@ def _test_kernel_slice_hp(initialize_fn,
         trials=100,
         nsamples=100)
 
-@attr('slow')
-def test_kernel_slice_hp_py():
-    indiv_prior_fn = log_exponential(1.2)
-    def init_inf_kernel_state_fn(s):
-        hparams = {
-            0 : {
-                'alpha' : (indiv_prior_fn, 1.5),
-                'beta'  : (indiv_prior_fn, 1.5),
-                }
-            }
-        return hparams
-    def prior_fn(raw):
-        return indiv_prior_fn(raw['alpha']) + indiv_prior_fn(raw['beta'])
-    kernel_fn = lambda s, arg, rng: py_slice_hp(s, rng, hparams=arg)
-    _test_kernel_slice_hp(py_initialize,
-                          init_inf_kernel_state_fn,
-                          prior_fn,
-                          py_numpy_dataview,
-                          py_bind,
-                          kernel_fn,
-                          'grid_slice_hp_py_samples.pdf',
-                          prng=None)
-
 def test_kernel_slice_hp_cxx():
     indiv_prior_fn = log_exponential(1.2)
     def init_inf_kernel_state_fn(s):
@@ -310,27 +272,6 @@ def test_kernel_slice_hp_cxx():
                           kernel_fn,
                           'grid_slice_hp_cxx_samples.pdf',
                           rng())
-
-@attr('slow')
-def test_kernel_slice_hp_noninform_py():
-    def init_inf_kernel_state_fn(s):
-        hparams = {
-            0 : {
-                  ('alpha', 'beta') : (log_noninformative_beta_prior, 1.0),
-                }
-            }
-        return hparams
-    def prior_fn(raw):
-        return log_noninformative_beta_prior(raw['alpha'], raw['beta'])
-    kernel_fn = lambda s, arg, rng: py_slice_hp(s, rng, hparams=arg)
-    _test_kernel_slice_hp(py_initialize,
-                          init_inf_kernel_state_fn,
-                          prior_fn,
-                          py_numpy_dataview,
-                          py_bind,
-                          kernel_fn,
-                          'grid_slice_hp_noninform_py_samples.pdf',
-                          prng=None)
 
 def test_kernel_slice_hp_noninform_cxx():
     def init_inf_kernel_state_fn(s):
@@ -454,26 +395,6 @@ def _test_cluster_hp_inference(initialize_fn,
     #        trials -= 1
     #        if not trials:
     #            raise ex._ex
-
-@attr('slow')
-def test_kernel_slice_cluster_hp_py():
-    prior_fn = log_exponential(1.5)
-    def init_inf_kernel_state_fn(s):
-        cparam = {'alpha':(prior_fn, 1.)}
-        return cparam
-    kernel_fn = lambda s, arg, rng: py_slice_hp(s, rng, cparam=arg)
-    grid_min, grid_max, grid_n = 0.0, 50., 100
-    _test_cluster_hp_inference(py_initialize,
-                               prior_fn,
-                               grid_min,
-                               grid_max,
-                               grid_n,
-                               py_numpy_dataview,
-                               py_bind,
-                               init_inf_kernel_state_fn,
-                               kernel_fn,
-                               map_actual_postprocess_fn=lambda x: x,
-                               prng=None)
 
 def test_kernel_slice_cluster_hp_cxx():
     prior_fn = log_exponential(1.5)
@@ -636,36 +557,3 @@ def test_nich_hp_sigmasq():
                               grid_n,
                               nich,
                               'sigmasq')
-
-#@attr('slow')
-#def test_kernel_mh_hp():
-#    # use a gaussian proposal
-#    sigma2 = 0.2
-#    Qfn = lambda th: np.array([[np.cos(th), -np.sin(th)], [np.sin(th), np.cos(th)]])
-#    Q = Qfn(math.pi/8.)
-#    cov = np.dot(np.dot(Q, np.diag([sigma2, 1e-3])), Q.T)
-#
-#    def gauss_prop_pdf(a, b):
-#        a = np.array([a['alpha'], a['beta']])
-#        b = np.array([b['alpha'], b['beta']])
-#        # log Q(b|a)
-#        return sp.stats.multivariate_normal.logpdf(b, mean=a, cov=cov)
-#
-#    def gauss_prop_sampler(a):
-#        a = np.array([a['alpha'], a['beta']])
-#        # rejection sample only in the first quadrant
-#        while True:
-#            alpha, beta = np.random.multivariate_normal(mean=a, cov=cov)
-#            if alpha > 0.0 and beta > 0.0:
-#                break
-#        return {'alpha':alpha,'beta':beta}
-#
-#    def init_inf_kernel_state_fn(dpmm):
-#        hparams = {0:{'hpdf':_bb_hyperprior_pdf,'hcondpdf':gauss_prop_pdf,'hsamp':gauss_prop_sampler}}
-#        return hparams
-#
-#    _test_hp_inference(
-#        init_inf_kernel_state_fn,
-#        mh_hp,
-#        lambda x: x,
-#        'grid_mh_hp_samples.pdf')

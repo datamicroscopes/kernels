@@ -1,23 +1,23 @@
 from microscopes.irm.definition import model_definition as irm_definition
-from microscopes.cxx.irm.model import \
+from microscopes.irm.model import \
         initialize as irm_initialize, \
         bind as irm_bind
 from microscopes.mixture.definition import model_definition as mm_definition
-from microscopes.cxx.mixture.model import \
+from microscopes.mixture.model import \
         initialize as mm_initialize, \
         bind as mm_bind
-from microscopes.cxx.common.rng import rng
-from microscopes.cxx.common.relation.dataview import \
+from microscopes.common.rng import rng
+from microscopes.common.relation.dataview import \
         numpy_dataview as relation_numpy_dataview, \
         sparse_2d_dataview as sparse_relation_dataview
-from microscopes.cxx.common.recarray.dataview import \
+from microscopes.common.recarray.dataview import \
         numpy_dataview as rec_numpy_dataview
 
 from microscopes.models import bb, bbnc, gp
-from microscopes.cxx.kernels.gibbs import assign, assign_resample
-from microscopes.cxx.kernels.slice import theta
+from microscopes.kernels.gibbs import assign, assign_resample
+from microscopes.kernels.slice import theta
 
-from microscopes.py.common.util import KL_discrete, logsumexp
+from microscopes.common.util import KL_discrete, logsumexp
 
 import numpy as np
 import numpy.ma as ma
