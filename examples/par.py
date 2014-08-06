@@ -4,10 +4,10 @@ import multiprocessing as mp
 import numpy as np
 
 from microscopes.mixture.definition import model_definition
-from microscopes.cxx.common.rng import rng
-from microscopes.cxx.common.recarray.dataview import numpy_dataview
-from microscopes.cxx.mixture.model import initialize, deserialize, bind
-from microscopes.cxx.kernels import gibbs
+from microscopes.common.rng import rng
+from microscopes.common.recarray.dataview import numpy_dataview
+from microscopes.mixture.model import initialize, deserialize, bind
+from microscopes.kernels import gibbs
 from microscopes.models import bb
 
 def _make_definition(N, D):
