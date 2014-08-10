@@ -7,6 +7,7 @@
 #include <distributions/models/bb.hpp>
 
 #include <memory>
+#include <iostream>
 
 using namespace std;
 using namespace microscopes;
@@ -40,6 +41,10 @@ make_irm(size_t groups,
          size_t relations,
          common::rng_t &r)
 {
+  cout << "entities_per_group: " << entities_per_group << ", "
+       << "relations: " << relations << ", "
+       << "groups: " << groups << endl;
+
   const size_t n = groups * entities_per_group;
 
   irm::relation_definition reldef({0, 0},
@@ -84,7 +89,8 @@ make_irm(size_t groups,
 int
 main(int argc, char **argv)
 {
-  common::rng_t r;
+  random_device rd;
+  common::rng_t r(rd());
   auto p = make_irm(100, 100, 1, r);
   irm::model<4> m(p.first, 0, p.second);
 
