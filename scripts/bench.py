@@ -26,7 +26,7 @@ def versions():
         return sha1
     return { 'common':parse(common_version), 'mixturemodel':parse(mixturemodel_version), 'kernels':parse(kernels_version), }
 
-def measure(groups, entities_per_group, features, target_runtime, latent, r):
+def measure(groups, target_runtime, latent, r):
     start = time.time()
     loop_start = start
     iters = 0
@@ -91,7 +91,7 @@ def bench(args, latent_fn, prefix):
     for groups, entities_per_group, features in it.product(args.groups, args.entities_per_group, args.features):
         start = time.time()
         latent = latent_fn(groups, entities_per_group, features, r)
-        results.append(measure(groups, entities_per_group, features, target_runtime, latent, r))
+        results.append(measure(groups, target_runtime, latent, r))
         print 'finished ({}, {}, {}) in {} seconds'.format(groups, entities_per_group, features, time.time()-start)
 
     results = np.array(results).reshape((len(args.groups), len(args.entities_per_group), len(args.features)))
