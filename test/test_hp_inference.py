@@ -14,9 +14,6 @@ from microscopes.mixture.definition import model_definition
 from microscopes.common.util import almost_eq
 
 import numpy as np
-import math
-import scipy as sp
-import scipy.stats
 
 try:
     import matplotlib.pylab as plt
@@ -26,8 +23,12 @@ except ImportError:
 
 import itertools as it
 
-from test_utils import OurAssertionError, our_assert_almost_equals, assert_1d_cont_dist_approx_emp
-from nose.plugins.attrib import attr
+from test_utils import (
+    assert_1d_cont_dist_approx_emp,
+    #OurAssertionError,
+    #our_assert_almost_equals,
+)
+#from nose.plugins.attrib import attr
 
 def _bb_hyperprior_pdf(hp):
     alpha, beta = hp['alpha'], hp['beta']

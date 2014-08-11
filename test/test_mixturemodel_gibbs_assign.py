@@ -8,11 +8,10 @@ from microscopes.kernels.gibbs import \
         assign_resample as cxx_gibbs_assign_nonconj
 from microscopes.kernels.slice import theta as cxx_slice_theta
 
-from microscopes.models import bb, gp, nich, bbnc, niw, bbnc
+from microscopes.models import bb, niw, bbnc
 from microscopes.mixture.definition import model_definition
 
-from microscopes.common.util import \
-        KL_discrete, logsumexp, random_orthonormal_matrix
+from microscopes.common.util import random_orthonormal_matrix
 
 from test_utils import \
         assert_discrete_dist_approx, \
@@ -21,7 +20,6 @@ from test_utils import \
         dist_on_all_clusterings
 
 import itertools as it
-import math
 import numpy as np
 import numpy.ma as ma
 import time
@@ -203,7 +201,7 @@ def _test_nonconj_inference(initialize_fn,
     Y, assignment = data_with_assignment(Y_clustered)
     view = dataview(Y)
     s = initialize_fn(
-        defn, data, cluster_hp=cluster_hp,
+        defn, view, cluster_hp=cluster_hp,
         feature_hps=feature_hps, assignment=assignment, r=R)
     bs = bind(s, view)
 

@@ -21,10 +21,8 @@ from test_utils import \
         scores_to_probs
 
 from nose.tools import assert_almost_equals
-from nose.plugins.attrib import attr
+#from nose.plugins.attrib import attr
 
-import itertools as it
-import math
 import numpy as np
 
 def _sample_crp(n, alpha):

@@ -4,4 +4,4 @@ def test_import_gibbs():
 
 def test_import_slice():
     from microscopes.kernels.slice import hp, theta
-    assert hp
+    assert hp and theta

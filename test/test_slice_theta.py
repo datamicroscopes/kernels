@@ -14,13 +14,12 @@ from microscopes.mixture.definition import \
 from microscopes.irm.definition import \
         model_definition as irm_model_definition
 
-from microscopes.common.util import KL_approx
 from test_utils import assert_1d_cont_dist_approx_sps
 from scipy.stats import beta
 
 import numpy as np
 
-from nose.plugins.attrib import attr
+#from nose.plugins.attrib import attr
 
 def test_slice_theta_mm():
     N = 100

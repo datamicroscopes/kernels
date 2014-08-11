@@ -3,7 +3,6 @@ routines to make writing test cases less painful
 """
 
 import numpy as np
-import numpy.ma as ma
 import itertools as it
 from microscopes.common.util import \
         KL_approx, KL_discrete, logsumexp

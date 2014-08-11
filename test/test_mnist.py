@@ -10,8 +10,12 @@ from microscopes.mixture.definition import model_definition
 
 from sklearn.datasets import fetch_mldata
 from sklearn.cross_validation import train_test_split
-from sklearn.metrics import accuracy_score, roc_curve, roc_auc_score, \
-        confusion_matrix
+from sklearn.metrics import (
+    accuracy_score,
+    roc_auc_score,
+    confusion_matrix,
+    #roc_curve,
+)
 
 import numpy as np
 import numpy.ma as ma
@@ -55,7 +59,7 @@ def test_mnist_supervised():
         dtype = [('', bool)]*D + [('',int)]
         Y = np.array([tuple(list(y) + [classmap[c]]) for y in Y[np.random.permutation(Y.shape[0])][:sample_size_max]], dtype=dtype)
         return Y
-    Y_train = np.hstack([mk_class_data(c, Y_train) for c, Y_train in zip(classes, train_data)])
+    Y_train = np.hstack([mk_class_data(c, y) for c, y in zip(classes, train_data)])
     Y_train = Y_train[np.random.permutation(np.arange(Y_train.shape[0]))]
 
     n, = Y_train.shape
@@ -230,7 +234,7 @@ def test_mnist():
             for _ in xrange(fill):
                 data.append(np.zeros(D))
         assert not (len(data) % digits_per_row)
-        rows = len(data) / digits_per_row
+        #rows = len(data) / digits_per_row
         data = np.vstack([np.hstack([d.reshape((W,W)) for d in data[i:i+digits_per_row]]) for i in xrange(0, len(data), digits_per_row)])
         #print 'saving figure', fname
         plt.imshow(data, cmap=plt.cm.binary, interpolation='nearest')

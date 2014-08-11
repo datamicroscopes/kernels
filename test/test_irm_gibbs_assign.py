@@ -17,8 +17,6 @@ from microscopes.models import bb, bbnc, gp
 from microscopes.kernels.gibbs import assign, assign_resample
 from microscopes.kernels.slice import theta
 
-from microscopes.common.util import KL_discrete, logsumexp
-
 import numpy as np
 import numpy.ma as ma
 
@@ -29,14 +27,14 @@ import time
 from scipy.sparse import coo_matrix
 
 from nose.tools import assert_almost_equals
-from nose.plugins.attrib import attr
-from test_utils import \
-        assert_1d_lists_almost_equals, \
-        assert_discrete_dist_approx, \
-        permutation_iter, \
-        permutation_canonical, \
-        scores_to_probs, \
-        dist_on_all_clusterings
+#from nose.plugins.attrib import attr
+from test_utils import (
+    assert_1d_lists_almost_equals,
+    assert_discrete_dist_approx,
+    permutation_iter,
+    permutation_canonical,
+    scores_to_probs,
+)
 
 def _tocsr(raw):
     n, m = raw.shape
