@@ -11,9 +11,11 @@ import sys
 from bench import bench
 
 # features = relations here
+
+
 def latent(groups, entities_per_group, features, r):
     N = groups * entities_per_group
-    defn = model_definition([N], [((0, 0), bb)]*features)
+    defn = model_definition([N], [((0, 0), bb)] * features)
 
     # generate fake data
     views = []
@@ -23,11 +25,12 @@ def latent(groups, entities_per_group, features, r):
         views.append(view)
 
     # assign entities to their respective groups
-    assignment = [[g]*entities_per_group for g in xrange(groups)]
+    assignment = [[g] * entities_per_group for g in xrange(groups)]
     assignment = list(it.chain.from_iterable(assignment))
 
-    latent = bind(initialize(defn, views, r, domain_assignments=[assignment]), 0, views)
-    latent.create_group(r) # perftest() doesnt modify group assignments
+    latent = bind(
+        initialize(defn, views, r, domain_assignments=[assignment]), 0, views)
+    latent.create_group(r)  # perftest() doesnt modify group assignments
 
     return latent
 

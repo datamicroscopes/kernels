@@ -10,20 +10,22 @@ import sys
 
 from bench import bench
 
+
 def latent(groups, entities_per_group, features, r):
     N = groups * entities_per_group
-    defn = model_definition(N, [bb]*features)
+    defn = model_definition(N, [bb] * features)
 
     # generate fake data
     Y = np.random.random(size=(N, features)) <= 0.5
-    view = numpy_dataview(np.array([tuple(y) for y in Y], dtype=[('', bool)]*features))
+    view = numpy_dataview(
+        np.array([tuple(y) for y in Y], dtype=[('', bool)] * features))
 
     # assign entities to their respective groups
-    assignment = [[g]*entities_per_group for g in xrange(groups)]
+    assignment = [[g] * entities_per_group for g in xrange(groups)]
     assignment = list(it.chain.from_iterable(assignment))
 
     latent = bind(initialize(defn, view, r, assignment=assignment), view)
-    latent.create_group(r) # perftest() doesnt modify group assignments
+    latent.create_group(r)  # perftest() doesnt modify group assignments
 
     return latent
 
