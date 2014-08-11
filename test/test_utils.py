@@ -5,23 +5,33 @@ routines to make writing test cases less painful
 import numpy as np
 import itertools as it
 from microscopes.common.util import \
-        KL_approx, KL_discrete, logsumexp
+    KL_approx, KL_discrete, logsumexp
 from nose.tools import assert_equals, assert_almost_equals
 
-def assert_1d_lists_almost_equals(first, second, places=None, msg=None, delta=None):
+
+def assert_1d_lists_almost_equals(first,
+                                  second,
+                                  places=None,
+                                  msg=None,
+                                  delta=None):
     assert_equals(len(first), len(second), msg=msg)
     for i, j in zip(first, second):
         assert_almost_equals(i, j, places=places, msg=msg, delta=delta)
 
+
 class OurAssertionError(Exception):
+
     def __init__(self, ex):
         self._ex = ex
 
+
 def our_assert_almost_equals(first, second, places=None, msg=None, delta=None):
     try:
-        assert_almost_equals(first, second, places=places, msg=msg, delta=delta)
+        assert_almost_equals(
+            first, second, places=places, msg=msg, delta=delta)
     except AssertionError as ex:
         raise OurAssertionError(ex)
+
 
 def assert_1d_cont_dist_approx_emp(sample_fn,
                                    log_q_fn,
@@ -57,7 +67,7 @@ def assert_1d_cont_dist_approx_emp(sample_fn,
 
     # create the "true" distribution from log_q_fn
     grid = np.linspace(grid_min, grid_max, grid_n)
-    points = (grid[1:] + grid[:-1])/2.
+    points = (grid[1:] + grid[:-1]) / 2.
 
     # multiplicative smoothing (multiplying by ~1)
     true_dist = np.array([log_q_fn(pt) for pt in points]) + smoothing
@@ -77,6 +87,7 @@ def assert_1d_cont_dist_approx_emp(sample_fn,
                                 ntries,
                                 nsamples,
                                 kl_places)
+
 
 def assert_1d_cont_dist_approx_sps(sample_fn,
                                    rv,
@@ -116,12 +127,14 @@ def assert_1d_cont_dist_approx_sps(sample_fn,
         try:
             # estimate mean
             est_mean = samples.mean()
-            print 'true_mean', true_mean, 'est_mean', est_mean, 'diff', np.abs(true_mean - est_mean)
+            print 'true_mean', true_mean, 'est_mean', est_mean, \
+                'diff', np.abs(true_mean - est_mean)
             our_assert_almost_equals(true_mean, est_mean, places=mean_places)
 
             # estimate variance
-            est_var = samples.var(ddof=1) # used unbiased estimator
-            print 'true_var', true_var, 'est_var', est_var, 'diff', np.abs(true_var - est_var)
+            est_var = samples.var(ddof=1)  # used unbiased estimator
+            print 'true_var', true_var, 'est_var', est_var, \
+                'diff', np.abs(true_var - est_var)
             our_assert_almost_equals(true_var, est_var, places=var_places)
 
             # estimate empirical KL
@@ -132,20 +145,21 @@ def assert_1d_cont_dist_approx_sps(sample_fn,
             est_hist += smoothing
             est_hist /= est_hist.sum()
 
-            points = (bins[1:]+bins[:-1])/2.
+            points = (bins[1:] + bins[:-1]) / 2.
             actual_hist = rv.pdf(points)
             actual_hist /= actual_hist.sum()
 
-            kldiv = KL_approx(actual_hist, est_hist, bins[1]-bins[0])
+            kldiv = KL_approx(actual_hist, est_hist, bins[1] - bins[0])
             print 'kldiv:', kldiv
             our_assert_almost_equals(kldiv, 0., places=kl_places)
 
-            return # success
+            return  # success
         except OurAssertionError as ex:
             print 'warning:', ex._ex.message
             ntries -= 1
             if not ntries:
                 raise ex._ex
+
 
 def assert_discrete_dist_approx(sample_fn,
                                 dist,
@@ -186,12 +200,13 @@ def assert_discrete_dist_approx(sample_fn,
             our_assert_almost_equals(ab, 0., places=kl_places)
             our_assert_almost_equals(ba, 0., places=kl_places)
 
-            return # success
+            return  # success
         except OurAssertionError as ex:
             print 'warning:', ex._ex.message
             ntries -= 1
             if not ntries:
                 raise ex._ex
+
 
 def permutation_canonical(assignments):
     assignments = np.copy(assignments)
@@ -209,6 +224,7 @@ def permutation_canonical(assignments):
         lowest += 1
     return assignments
 
+
 def permutation_iter(n):
     seen = set()
     for C in it.product(range(n), repeat=n):
@@ -218,11 +234,13 @@ def permutation_iter(n):
         seen.add(C)
         yield C
 
+
 def scores_to_probs(scores):
     scores = np.array(scores)
     scores -= logsumexp(scores)
     scores = np.exp(scores)
     return scores
+
 
 def dist_on_all_clusterings(score_fn, N):
     """

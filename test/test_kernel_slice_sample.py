@@ -5,13 +5,16 @@ from microscopes.common.util import KL_approx
 
 import numpy as np
 
+
 def hist(data, bins):
     H, _ = np.histogram(data, bins=bins, density=False)
     return H
 
+
 def _test_gauss(slice_sample_fn, prng):
     # sample from N(0,1)
     pdf = log_normal(0., 1.)
+
     def sampler(x0, niters):
         x = x0
         for _ in xrange(niters):
@@ -30,15 +33,16 @@ def _test_gauss(slice_sample_fn, prng):
     slice_hist /= slice_hist.sum()
 
     # KL-divergence
-    kldiff = KL_approx(actual_hist, slice_hist, bins[1]-bins[0])
+    kldiff = KL_approx(actual_hist, slice_hist, bins[1] - bins[0])
     print 'KL:', kldiff
 
     # statistical distance
     maxdiff = np.abs(actual_hist - slice_hist).max()
     print 'maxdiff:', maxdiff
 
-    assert kldiff  <= 0.005
+    assert kldiff <= 0.005
     assert maxdiff <= 0.005
+
 
 def test_gauss_cxx():
     import time

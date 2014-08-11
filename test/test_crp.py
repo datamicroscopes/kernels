@@ -5,9 +5,9 @@
 # file)
 
 from microscopes.mixture.model import \
-        initialize as cxx_initialize
+    initialize as cxx_initialize
 from microscopes.common.recarray.dataview import \
-        numpy_dataview as cxx_numpy_dataview
+    numpy_dataview as cxx_numpy_dataview
 
 from microscopes.common.rng import rng
 from microscopes.models import bb
@@ -15,15 +15,16 @@ from microscopes.mixture.definition import model_definition
 from distributions.dbg.random import sample_discrete
 
 from test_utils import \
-        permutation_iter, \
-        permutation_canonical, \
-        assert_discrete_dist_approx, \
-        scores_to_probs
+    permutation_iter, \
+    permutation_canonical, \
+    assert_discrete_dist_approx, \
+    scores_to_probs
 
 from nose.tools import assert_almost_equals
 #from nose.plugins.attrib import attr
 
 import numpy as np
+
 
 def _sample_crp(n, alpha):
     """
@@ -49,39 +50,45 @@ def _sample_crp(n, alpha):
         assignments[i] = choice
     return assignments
 
+
 def _test_crp(initialize_fn, dataview, alpha, r):
     N = 6
     defn = model_definition(N, [bb])
-    Y = np.array([(True,)]*N, dtype=[('',bool)])
+    Y = np.array([(True,)] * N, dtype=[('', bool)])
     view = dataview(Y)
+
     def crp_score(assignment):
         latent = initialize_fn(
             defn, view, r=r,
-            cluster_hp={'alpha':alpha}, assignment=assignment)
+            cluster_hp={'alpha': alpha}, assignment=assignment)
         return latent.score_assignment()
     dist = np.array(list(map(crp_score, permutation_iter(N))))
     dist = np.exp(dist)
     assert_almost_equals(dist.sum(), 1.0, places=3)
 
+
 def test_crp_cxx():
     for alpha in (0.1, 1.0, 10.0):
         _test_crp(cxx_initialize, cxx_numpy_dataview, alpha=alpha, r=rng())
+
 
 def test_crp_empirical():
     N = 4
     alpha = 2.5
     defn = model_definition(N, [bb])
-    Y = np.array([(True,)]*N, dtype=[('',bool)])
+    Y = np.array([(True,)] * N, dtype=[('', bool)])
     view = cxx_numpy_dataview(Y)
     r = rng()
+
     def crp_score(assignment):
         latent = cxx_initialize(
             defn, view, r=r,
-            cluster_hp={'alpha':alpha}, assignment=assignment)
+            cluster_hp={'alpha': alpha}, assignment=assignment)
         return latent.score_assignment()
     scores = np.array(list(map(crp_score, permutation_iter(N))))
     dist = scores_to_probs(scores)
-    idmap = { C : i for i, C in enumerate(permutation_iter(N)) }
+    idmap = {C: i for i, C in enumerate(permutation_iter(N))}
+
     def sample_fn():
         sample = permutation_canonical(_sample_crp(N, alpha))
         return idmap[tuple(sample)]
