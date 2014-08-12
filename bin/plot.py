@@ -6,6 +6,7 @@ import json
 import numpy as np
 import matplotlib.pylab as plt
 
+
 def draw(obj, outfile):
     groups, entities_per_group, features = (
         obj['args']['groups'],
@@ -17,25 +18,26 @@ def draw(obj, outfile):
         (len(groups), len(entities_per_group), len(features)))
     groups = np.array(groups, dtype=np.float)
     for i in xrange(len(features)):
-       data = results[:, :, i]
-       linear = groups * \
-           (data[0, 0] /
-            (float(entities_per_group[0]) * groups[0]) / groups[0])
-       plt.plot(groups, linear, 'k--')
-       for j in xrange(len(entities_per_group)):
-           plt.plot(
-               groups,
-               data[:, j] / (float(entities_per_group[j]) * groups))
-       legend = ['linear']
-       legend.extend(['gsize {}'.format(gsize)
-                      for gsize in entities_per_group])
-       plt.legend(legend, loc='lower right')
-       plt.xlabel('groups')
-       plt.ylabel('time/iteration/entity (sec)')
-       plt.ylim(ymin=0)
-       plt.tight_layout()
-       plt.savefig(outfile)
-       plt.close()
+        data = results[:, :, i]
+        linear = groups * \
+            (data[0, 0] /
+             (float(entities_per_group[0]) * groups[0]) / groups[0])
+        plt.plot(groups, linear, 'k--')
+        for j in xrange(len(entities_per_group)):
+            plt.plot(
+                groups,
+                data[:, j] / (float(entities_per_group[j]) * groups))
+        legend = ['linear']
+        legend.extend(['gsize {}'.format(gsize)
+                       for gsize in entities_per_group])
+        plt.legend(legend, loc='lower right')
+        plt.xlabel('groups')
+        plt.ylabel('time/iteration/entity (sec)')
+        plt.ylim(ymin=0)
+        plt.tight_layout()
+        plt.savefig(outfile)
+        plt.close()
+
 
 def main(args):
     parser = argparse.ArgumentParser()
