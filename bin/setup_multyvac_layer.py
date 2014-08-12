@@ -12,7 +12,7 @@ sudo apt-get install -qq g++-4.8
 wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
 chmod +x ./miniconda.sh
 ./miniconda.sh -b
-export PATH=$HOME/miniconda/bin:$PATH
+export PATH=/home/multyvac/miniconda/bin:$PATH
 conda update --yes conda
 conda create -n build --yes python=2.7 numpy scipy nose cython pip cmake
 source activate build
@@ -35,6 +35,7 @@ done
 
 update_sh = """#!/bin/bash
 set -e
+export PATH=/home/multyvac/miniconda/bin:$PATH
 source activate build
 export CC=gcc-4.8
 export CXX=g++-4.8
