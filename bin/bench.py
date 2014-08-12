@@ -1,10 +1,8 @@
 import argparse
-#import numpy as np
 import itertools as it
 import time
 import math
 import json
-#import matplotlib.pylab as plt
 
 from datetime import datetime
 from microscopes.common.rng import rng
@@ -119,28 +117,3 @@ def bench(args, latent_fn):
 
     with open(args.output, 'w') as fp:
         json.dump(output, fp)
-
-    # results = np.array(results).reshape(
-    #    (len(args.groups), len(args.entities_per_group), len(args.features)))
-    #groups = np.array(args.groups, dtype=np.float)
-    # for i in xrange(len(args.features)):
-    #    data = results[:, :, i]
-    #    linear = groups * \
-    #        (data[0, 0] /
-    #         (float(args.entities_per_group[0]) * groups[0]) / groups[0])
-    #    plt.plot(args.groups, linear, 'k--')
-    #    for j in xrange(len(args.entities_per_group)):
-    #        plt.plot(
-    #            args.groups,
-    #            data[:, j] / (float(args.entities_per_group[j]) * groups))
-    #    legend = ['linear']
-    #    legend.extend(['gsize {}'.format(gsize)
-    #                   for gsize in args.entities_per_group])
-    #    plt.legend(legend, loc='lower right')
-    #    plt.xlabel('groups')
-    #    plt.ylabel('time/iteration/entity (sec)')
-    #    plt.ylim(ymin=0)
-    #    plt.tight_layout()
-    #    plt.savefig(
-    #        '{}-perf-{}-f{}.pdf'.format(prefix, vstr, args.features[i]))
-    #    plt.close()
