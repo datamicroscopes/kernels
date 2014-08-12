@@ -33,6 +33,23 @@ for p in $PROJECTS; do
 done
 """
 
+update_sh = """#!/bin/bash
+set -e
+source activate build
+export CC=gcc-4.8
+export CXX=g++-4.8
+
+PROJECTS="common mixturemodel irm kernels"
+for p in $PROJECTS; do
+    (cd "$p" && git pull)
+done
+
+for p in $PROJECTS; do
+    (cd "$p" && rm -rf release && make release && cd release && make && make install)
+    (cd "$p" && pip install . --upgrade)
+done
+"""
+
 
 def run_command(job, cmd):
     """
@@ -66,18 +83,21 @@ def run_command(job, cmd):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--layer', required=True)
+    parser.add_argument('--action', required=True, choices=['setup', 'update'])
     args = parser.parse_args()
 
-    print "layer:", args.layer
-    multyvac.layer.create(args.layer)
+    print args
+    if args.action == 'setup':
+        multyvac.layer.create(args.layer)
     layer = multyvac.layer.get(args.layer)
 
     # XXX: don't hardcode multyvac username
     layer.put_contents(setup_sh, "/home/multyvac/setup.sh", 0755)
+    layer.put_contents(update_sh, "/home/multyvac/update.sh", 0755)
 
     job = layer.modify()
-    p = run_command(job, "/home/multyvac/setup.sh")
-    p.wait()
+    p = run_command(job, "/home/multyvac/{}.sh".format(args.action))
+    p.wait()  # wait for the ssh process to finish, *NOT* the job
     job.snapshot()
 
 if __name__ == '__main__':

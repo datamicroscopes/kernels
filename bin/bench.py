@@ -1,12 +1,15 @@
 import argparse
-import numpy as np
+#import numpy as np
 import itertools as it
 import time
 import math
-import matplotlib.pylab as plt
+import json
+#import matplotlib.pylab as plt
 
+from datetime import datetime
 from microscopes.common.rng import rng
 from microscopes.kernels import gibbs
+from vendor import cpuinfo
 
 
 def versions():
@@ -55,12 +58,13 @@ def measure(groups, target_runtime, latent, r):
     return time_per_iteration
 
 
-def bench(args, latent_fn, prefix):
+def bench(args, latent_fn):
     parser = argparse.ArgumentParser()
     parser.add_argument('--groups', type=int, action='append')
     parser.add_argument('--entities-per-group', type=int, action='append')
     parser.add_argument('--features', type=int, action='append')
     parser.add_argument('--target-runtime', type=int, required=True)
+    parser.add_argument('--output', type=str, required=True)
     args = parser.parse_args(args)
 
     print args
@@ -105,27 +109,38 @@ def bench(args, latent_fn, prefix):
         print 'finished ({}, {}, {}) in {} seconds'.format(
             groups, entities_per_group, features, time.time() - start)
 
-    results = np.array(results).reshape(
-        (len(args.groups), len(args.entities_per_group), len(args.features)))
-    groups = np.array(args.groups, dtype=np.float)
-    for i in xrange(len(args.features)):
-        data = results[:, :, i]
-        linear = groups * \
-            (data[0, 0] /
-             (float(args.entities_per_group[0]) * groups[0]) / groups[0])
-        plt.plot(args.groups, linear, 'k--')
-        for j in xrange(len(args.entities_per_group)):
-            plt.plot(
-                args.groups,
-                data[:, j] / (float(args.entities_per_group[j]) * groups))
-        legend = ['linear']
-        legend.extend(['gsize {}'.format(gsize)
-                       for gsize in args.entities_per_group])
-        plt.legend(legend, loc='lower right')
-        plt.xlabel('groups')
-        plt.ylabel('time/iteration/entity (sec)')
-        plt.ylim(ymin=0)
-        plt.tight_layout()
-        plt.savefig(
-            '{}-perf-{}-f{}.pdf'.format(prefix, vstr, args.features[i]))
-        plt.close()
+    output = {
+        'args': args.__dict__,
+        'versions': vs,
+        'cpuinfo': cpuinfo.get_cpu_info(),
+        'results': results,
+        'time': datetime.now().isoformat(),
+    }
+
+    with open(args.output, 'w') as fp:
+        json.dump(output, fp)
+
+    # results = np.array(results).reshape(
+    #    (len(args.groups), len(args.entities_per_group), len(args.features)))
+    #groups = np.array(args.groups, dtype=np.float)
+    # for i in xrange(len(args.features)):
+    #    data = results[:, :, i]
+    #    linear = groups * \
+    #        (data[0, 0] /
+    #         (float(args.entities_per_group[0]) * groups[0]) / groups[0])
+    #    plt.plot(args.groups, linear, 'k--')
+    #    for j in xrange(len(args.entities_per_group)):
+    #        plt.plot(
+    #            args.groups,
+    #            data[:, j] / (float(args.entities_per_group[j]) * groups))
+    #    legend = ['linear']
+    #    legend.extend(['gsize {}'.format(gsize)
+    #                   for gsize in args.entities_per_group])
+    #    plt.legend(legend, loc='lower right')
+    #    plt.xlabel('groups')
+    #    plt.ylabel('time/iteration/entity (sec)')
+    #    plt.ylim(ymin=0)
+    #    plt.tight_layout()
+    #    plt.savefig(
+    #        '{}-perf-{}-f{}.pdf'.format(prefix, vstr, args.features[i]))
+    #    plt.close()

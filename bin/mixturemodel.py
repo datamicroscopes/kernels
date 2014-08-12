@@ -30,4 +30,4 @@ def latent(groups, entities_per_group, features, r):
     return latent
 
 if __name__ == '__main__':
-    bench(sys.argv[1:], latent, 'mixturemodel')
+    bench(sys.argv[1:], latent)
