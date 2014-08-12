@@ -5,7 +5,7 @@ run_sh = """#!/bin/bash
 export PATH=/home/multyvac/miniconda/bin:$PATH
 source activate build
 cd /home/multyvac/kernels/bin
-python run_multivac_bench_remote.py --results-dir {results} --benchmark "$@"
+python run_multyvac_bench_remote.py --results-dir {results} --benchmark "$@"
 """
 
 
