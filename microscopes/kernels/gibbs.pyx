@@ -1,3 +1,6 @@
+# cython: embedsignature=True
+
+
 # cimports
 from libcpp.vector cimport vector
 from libcpp.utility cimport pair
