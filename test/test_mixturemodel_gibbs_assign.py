@@ -150,8 +150,8 @@ def _test_multivariate_models(initialize_fn,
                               gibbs_assign,
                               R):
     # XXX: this test only checks that the operations don't crash
-    mu0 = np.ones(3)
-    lambda_ = 0.3
+    mu = np.ones(3)
+    kappa = 0.3
     Q = random_orthonormal_matrix(3)
     psi = np.dot(Q, np.dot(np.diag([1.0, 0.5, 0.2]), Q.T))
     nu = 6
@@ -173,7 +173,7 @@ def _test_multivariate_models(initialize_fn,
         cluster_hp={'alpha': 2.},
         feature_hps=[
             {'alpha': 2., 'beta': 2.},
-            {'mu0': mu0, 'lambda': lambda_, 'psi': psi, 'nu': nu}
+            {'mu': mu, 'kappa': kappa, 'psi': psi, 'nu': nu}
         ],
         r=R)
 
@@ -231,7 +231,7 @@ def _test_nonconj_inference(initialize_fn,
 
     def kernel():
         assign_nonconj_fn(bs, 10, R)
-        slice_theta_fn(bs, thetaparams, R)
+        slice_theta_fn(bs, R, tparams=thetaparams)
 
     def inference(niters):
         for _ in xrange(niters):
