@@ -15,8 +15,7 @@ requirements:
     - libprotobuf
     - eigen3
     - microscopes-common
-    - microscopes-mixturemodel
-    - microscopes-irm
+
   run:
     - python
     - numpy

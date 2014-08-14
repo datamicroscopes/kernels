@@ -75,7 +75,3 @@ set(MICROSCOPES_KERNELS_SOURCE_FILES
 add_library(microscopes_kernels SHARED ${MICROSCOPES_KERNELS_SOURCE_FILES})
 target_link_libraries(microscopes_kernels ${PROTOBUF_LIBRARIES} distributions_shared microscopes_common)
 install(TARGETS microscopes_kernels LIBRARY DESTINATION lib)
-
-add_executable(bench bin/bench.cpp)
-add_test(bench bench)
-target_link_libraries(bench ${PROTOBUF_LIBRARIES} distributions_shared microscopes_common microscopes_irm microscopes_kernels)
