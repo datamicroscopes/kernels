@@ -41,7 +41,7 @@ def sample(scalar_function func, float x0, float w, rng r):
     return c_sample_1d(func._func, x0, w, r._thisptr[0])
 
 
-def hp(fixed_entity_based_state_object s, rng r, cparam=None, hparams=None):
+def hp(fixed_entity_based_state_object s, rng r, cparam={}, hparams={}):
     """
 
     example invocation:
@@ -58,12 +58,6 @@ def hp(fixed_entity_based_state_object s, rng r, cparam=None, hparams=None):
     hp(s, None, hparams, r)
     """
     validator.validate_not_none(r, "r")
-
-    # XXX: None should indicate use a sane default
-    if cparam is None:
-        cparam = {}
-    if hparams is None:
-        hparams = {}
 
     cdef vector[slice_hp_param_t] c_cparam
     cdef vector[slice_hp_t] c_hparams
@@ -107,11 +101,8 @@ def hp(fixed_entity_based_state_object s, rng r, cparam=None, hparams=None):
     c_hp(s._thisptr.get()[0], c_cparam, c_hparams, r._thisptr[0])
 
 
-def theta(fixed_entity_based_state_object s, rng r, tparams=None):
+def theta(fixed_entity_based_state_object s, rng r, tparams={}):
     validator.validate_not_none(r, "r")
-    # XXX: None should indicate use a sane default
-    if tparams is None:
-        tparams = {}
     cdef vector[slice_theta_t] c_tparams
     cdef vector[slice_theta_param_t] buf0
     for fi, params in tparams.iteritems():
