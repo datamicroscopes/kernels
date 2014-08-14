@@ -29,6 +29,8 @@ requirements:
 test:
   imports:
     - microscopes.kernels
+    - microscopes.kernels.gibbs
+    - microscopes.kernels.slice
 
 about:
   home: https://github.com/datamicroscopes/kernels
