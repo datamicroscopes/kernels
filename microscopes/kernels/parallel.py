@@ -12,6 +12,7 @@ def _mp_work(args):
     runner.run(niters)
     return runner.get_latent()
 
+
 class runner(object):
 
     def __init__(self, runners, backend='multiprocessing', **kwargs):
@@ -27,7 +28,6 @@ class runner(object):
             self._processes = kwargs['processes']
         else:
             assert False, 'should not be reached'
-
 
     def run(self, niters=10000):
         """Run each runner for `niters`, using the backend for parallelism
