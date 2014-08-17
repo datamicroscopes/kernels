@@ -5,6 +5,8 @@ miniconda_url = (
     'http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh'
 )
 
+projects = ('common', 'kernels', 'mixturemodel', 'irm',)
+
 setup_sh = """#!/bin/bash
 set -e
 
@@ -13,7 +15,7 @@ sudo apt-get install -y python-software-properties wget git make
 sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
 sudo apt-get update -qq
 sudo apt-get install -qq g++-4.8
-wget {:miniconda_url} -O miniconda.sh
+wget {miniconda_url} -O miniconda.sh
 chmod +x ./miniconda.sh
 ./miniconda.sh -b
 export PATH=/home/multyvac/miniconda/bin:$PATH
@@ -26,7 +28,7 @@ pip install gitpython
 export CC=gcc-4.8
 export CXX=g++-4.8
 
-PROJECTS="common mixturemodel irm kernels"
+PROJECTS="{projects_list}"
 for p in $PROJECTS; do
     git clone "https://github.com/datamicroscopes/$p.git"
 done
@@ -35,7 +37,7 @@ for p in $PROJECTS; do
     (cd "$p" && make release && cd release && make && make install)
     (cd "$p" && pip install .)
 done
-""".format(miniconda_url=miniconda_url)
+""".format(miniconda_url=miniconda_url, projects_list=' '.join(projects))
 
 update_sh = """#!/bin/bash
 set -e
@@ -44,7 +46,7 @@ source activate build
 export CC=gcc-4.8
 export CXX=g++-4.8
 
-PROJECTS="common mixturemodel irm kernels"
+PROJECTS="{projects_list}"
 for p in $PROJECTS; do
     (cd "$p" && git pull)
 done
@@ -54,7 +56,7 @@ for p in $PROJECTS; do
     (cd "$p" && make release && cd release && make && make install)
     (cd "$p" && pip install . --upgrade)
 done
-"""
+""".format(projects_list=' '.join(projects))
 
 
 def run_command(job, cmd):
