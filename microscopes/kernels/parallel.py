@@ -4,13 +4,15 @@ for various backends
 """
 
 from microscopes.common import validator
+from microscopes.common.rng import rng
 import multiprocessing as mp
 
 
 def _mp_work(args):
-    runner, niters = args
-    runner.run(niters)
-    return runner.get_latent()
+    runner, niters, seed = args
+    prng = rng(seed)
+    runner.run(r=prng, niters=niters)
+    return runner
 
 
 class runner(object):
@@ -29,20 +31,27 @@ class runner(object):
         else:
             assert False, 'should not be reached'
 
-    def run(self, niters=10000):
+    def run(self, r, niters=10000):
         """Run each runner for `niters`, using the backend for parallelism
 
+        Parameters
+        ----------
+        r : rng
+        niters : int, optional
+
         """
+        validator.validate_type(r, rng, param_name='r')
+        validator.validate_positive(niters, param_name='niters')
         if self._backend == 'multiprocessing':
             pool = mp.Pool(processes=self._processes)
-            args = [(runner, niters) for runner in self._runners]
+            args = [(runner, niters, r.next()) for runner in self._runners]
             # map_async() + get() allows us to workaround a bug where
             # control-C doesn't kill multiprocessing workers
-            self._latents = pool.map_async(_mp_work, args).get(10000000)
+            self._runners = pool.map_async(_mp_work, args).get(10000000)
             pool.close()
             pool.join()
         else:
             assert False, 'should not be reached'
 
     def get_latents(self):
-        return self._latents
+        return [runner.get_latent() for runner in self._runners]
