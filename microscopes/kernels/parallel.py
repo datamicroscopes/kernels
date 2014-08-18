@@ -45,6 +45,41 @@ def _mvac_list_files_in_dir(volume, path):
 
 
 class runner(object):
+    """A parallel runner. Note the parallelism is applied across runners
+    (currently, each runner is assumed to be single-threaded).
+
+    Parameters
+    ----------
+    runners : list of runner objects
+    backend : string, one of {'multiprocessing', 'multyvac'}
+        Indicates the parallelization strategy to be used across
+        runners. Note for the 'multiprocessing' backend, the only
+        valid kwarg is `processes`. For the 'multyvac' backend,
+        the valid kwargs are `layer`, `core`, and `volume`.
+
+    processes : int, optional
+        For the 'multiprocessing' backend, the number of processes
+        in the process pool. Defaults to the number of processes
+        on the current machine.
+
+    layer : string
+        The multyvac layer which has the datamicroscopes dependencies
+        installed.
+    core : string
+        The type of multyvac core to use. Defaults currently to `f2` (the most
+        expensive).
+    volume : string, optional
+        The volume is highly recommended to work around multyvac's limitations
+        regarding passing around large objects (e.g. dataviews). The volume
+        must be created beforehand. The runner uses the root directory of the
+        volume as a cache.
+
+    Notes
+    -----
+    To use the multyvac backend, you must first authenticate your machine (e.g.
+    by running multyvac setup) beforehand.
+
+    """
 
     def __init__(self, runners, backend='multiprocessing', **kwargs):
         self._runners = runners
@@ -84,8 +119,8 @@ class runner(object):
             self._env = {}
             jid = multyvac.shell_submit('echo $PATH', _layer=self._layer)
             path = multyvac.get(jid).get_result()
-            # XXX(stephentu): fragile, and assumes you used the setup
-            # multyvac scripts we provide
+            # XXX(stephentu): assumes you used the setup multyvac scripts we
+            # provide
             self._env['PATH'] = '{}:{}'.format(
                 '/home/multyvac/miniconda/envs/build/bin', path)
             self._env['CONDA_DEFAULT_ENV'] = 'build'
@@ -135,12 +170,13 @@ class runner(object):
             assert False, 'should not be reached'
 
     def run(self, r, niters=10000):
-        """Run each runner for `niters`, using the backend for parallelism
+        """Run each runner for `niters`, using the backend supplied in the
+        constructor for parallelism.
 
         Parameters
         ----------
         r : rng
-        niters : int, optional
+        niters : int
 
         """
         validator.validate_type(r, rng, param_name='r')
@@ -188,4 +224,6 @@ class runner(object):
             assert False, 'should not be reached'
 
     def get_latents(self):
+        """Returns a list of the current state of each of the runners.
+        """
         return [runner.get_latent() for runner in self._runners]
