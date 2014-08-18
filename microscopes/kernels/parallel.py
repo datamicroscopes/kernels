@@ -183,7 +183,8 @@ class runner(object):
         validator.validate_positive(niters, param_name='niters')
         if self._backend == 'multiprocessing':
             pool = mp.Pool(processes=self._processes)
-            args = [(runner, niters, r.next()) for runner in self._runners]
+            args = [(runner, niters, r.next(), None)
+                    for runner in self._runners]
             # map_async() + get() allows us to workaround a bug where
             # control-C doesn't kill multiprocessing workers
             self._runners = pool.map_async(_mp_work, args).get(10000000)
