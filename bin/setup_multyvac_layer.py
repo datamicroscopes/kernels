@@ -23,7 +23,7 @@ conda update --yes conda
 conda create -n build --yes python=2.7 numpy scipy nose cython pip cmake
 source activate build
 conda install --yes -c distributions distributions
-conda install --yes -c datamicroscopes pymc eigen3
+conda install --yes -c datamicroscopes eigen3
 pip install gitpython
 export CC=gcc-4.8
 export CXX=g++-4.8
@@ -43,16 +43,16 @@ update_sh = """#!/bin/bash
 set -e
 export PATH=/home/multyvac/miniconda/bin:$PATH
 source activate build
+
+conda install --yes -c distributions distributions
+
 export CC=gcc-4.8
 export CXX=g++-4.8
 
 PROJECTS="{projects_list}"
 for p in $PROJECTS; do
-    (cd "$p" && git pull)
-done
-
-for p in $PROJECTS; do
-    (cd "$p" && make clean)
+    rm -rf "$p"
+    git clone "https://github.com/datamicroscopes/$p.git"
     (cd "$p" && make release && cd release && make && make install)
     (cd "$p" && pip install . --upgrade)
 done
@@ -106,7 +106,7 @@ def main():
     job = layer.modify()
     p = run_command(job, "/home/multyvac/{}.sh".format(args.action))
     p.wait()  # wait for the ssh process to finish, *NOT* the job
-    job.snapshot()
+    job.snapshot()  # XXX: this seems to never return
 
 if __name__ == '__main__':
     main()
