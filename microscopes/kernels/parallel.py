@@ -120,14 +120,16 @@ class runner(object):
             for view, digest in zip(views, self._digests):
                 if digest in uploaded:
                     continue
-                _logger.info("uploaded view-{} since not found", digest)
+                _logger.info("uploaded view-%s since not found", digest)
                 f = tempfile.NamedTemporaryFile()
                 pickle.dump(view, f)
                 f.flush()
-                volume.put_file(f.name, 'view-{}'.format(digest))
+                # XXX(stephentu) this seems to fail for large files
+                #volume.put_file(f.name, 'view-{}'.format(digest))
+                volume.sync_up(f.name, 'view-{}'.format(digest))
                 f.close()
                 uploaded.add(digest)
-            _logger.info("view upload took {} seconds", (time.time() - start))
+            _logger.info("view upload took %f seconds", (time.time() - start))
 
         else:
             assert False, 'should not be reached'
