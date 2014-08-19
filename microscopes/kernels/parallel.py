@@ -54,8 +54,8 @@ class runner(object):
     backend : string, one of {'multiprocessing', 'multyvac'}
         Indicates the parallelization strategy to be used across
         runners. Note for the 'multiprocessing' backend, the only
-        valid kwarg is `processes`. For the 'multyvac' backend,
-        the valid kwargs are `layer`, `core`, and `volume`.
+        valid kwarg is 'processes'. For the 'multyvac' backend,
+        the valid kwargs are 'layer', 'core', and 'volume'.
 
     processes : int, optional
         For the 'multiprocessing' backend, the number of processes
@@ -66,8 +66,8 @@ class runner(object):
         The multyvac layer which has the datamicroscopes dependencies
         installed.
     core : string
-        The type of multyvac core to use. Defaults currently to `f2` (the most
-        expensive).
+        The type of multyvac core to use. Defaults currently to 'f2' (the most
+        expensive, but powerful core type).
     volume : string, optional
         The volume is highly recommended to work around multyvac's limitations
         regarding passing around large objects (e.g. dataviews). The volume
