@@ -13,3 +13,4 @@
 /microscopes/**/*.cpp
 /microscopes/**/*.so
 /microscopes_kernels.egg-info
+/microscopes/kernels/githash.txt
