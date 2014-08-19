@@ -11,6 +11,6 @@ Follow the instructions in the [common](https://github.com/datamicroscopes/commo
 Here are a few ipython notebooks. More examples can be found in the `examples` directory.
 
 - [2D Gaussian mixture model](http://nbviewer.ipython.org/github/datamicroscopes/kernels/blob/master/examples/gauss2d.ipynb)
-- [Digit completion with MNIST data](http://nbviewer.ipython.org/github/datamicroscopes/kernels/blob/master/examples/gauss2d.ipynb)
+- [Digit completion with MNIST data](http://nbviewer.ipython.org/github/datamicroscopes/kernels/blob/master/examples/mnist-predictions.ipynb)
 - [Enron e-mail corpus clustering](http://nbviewer.ipython.org/github/datamicroscopes/kernels/blob/master/examples/enron-email.ipynb)
 - [Cancer genomics clustering](http://nbviewer.ipython.org/github/datamicroscopes/kernels/blob/master/examples/golub-cancer.ipynb)
