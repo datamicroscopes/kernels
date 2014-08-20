@@ -22,20 +22,19 @@ except ImportError:
 
 
 def _mp_work(args):
-    runner, niters, seed, varg = args
-    if varg is not None:
+    runner, niters, seed, statearg = args
+    if statearg is not None:
         import multyvac
         import pickle
         import os
-        volume, name = varg
+        volume, name = statearg
         volume = multyvac.volume.get(volume)
         with open(os.path.join(volume.mount_path, name)) as fp:
-            view = pickle.load(fp)
-        runner._view = view
+            runner.expensive_state = pickle.load(fp)
     prng = rng(seed)
     runner.run(r=prng, niters=niters)
-    if varg is not None:
-        runner._view = None
+    if statearg is not None:
+        runner.expensive_state = None
     return runner
 
 
@@ -129,7 +128,7 @@ class runner(object):
 
             # XXX(stephentu): multyvac post requests are limited in size
             # (don't know what the hard limit is). so to avoid the limits,
-            # we explicitly serialize the views to a file
+            # we explicitly serialize the expensive state to a file
 
             if not self._volume:
                 # no volume provided for uploads
@@ -137,34 +136,33 @@ class runner(object):
                 return
 
             # XXX(stephentu): we shouldn't reach in there like this
-            views = [r._view for r in self._runners]
             self._digests = []
             digest_cache = {}
-            for v in views:
-                cache_key = id(v)
+            for runner in self._runners:
+                cache_key = id(runner.expensive_state)
                 if cache_key in digest_cache:
                     digest = digest_cache[cache_key]
                 else:
-                    digest = v.digest()
+                    digest = runner.expensive_state_digest()
                     digest_cache[cache_key] = digest
                 self._digests.append(digest)
 
             uploaded = set(_mvac_list_files_in_dir(volume, ""))
-            _logger.info("starting view uploads")
+            _logger.info("starting state uploads")
             start = time.time()
-            for view, digest in zip(views, self._digests):
+            for runner, digest in zip(self._runners, self._digests):
                 if digest in uploaded:
                     continue
-                _logger.info("uploaded view-%s since not found", digest)
+                _logger.info("uploaded state-%s since not found", digest)
                 f = tempfile.NamedTemporaryFile()
-                pickle.dump(view, f)
+                pickle.dump(runner.expensive_state, f)
                 f.flush()
                 # XXX(stephentu) this seems to fail for large files
-                #volume.put_file(f.name, 'view-{}'.format(digest))
-                volume.sync_up(f.name, 'view-{}'.format(digest))
+                #volume.put_file(f.name, 'state-{}'.format(digest))
+                volume.sync_up(f.name, 'state-{}'.format(digest))
                 f.close()
                 uploaded.add(digest)
-            _logger.info("view upload took %f seconds", (time.time() - start))
+            _logger.info("state upload took %f seconds", (time.time() - start))
 
         else:
             assert False, 'should not be reached'
@@ -197,15 +195,15 @@ class runner(object):
             jids = []
             has_volume = bool(self._volume)
             zipped = zip(self._runners, self._digests)
-            views = []
+            expensive_states = []
             for i, (runner, digest) in enumerate(zipped):
                 if has_volume:
-                    viewarg = (self._volume, 'view-{}'.format(digest))
-                    views.append(runner._view)
-                    runner._view = None
+                    statearg = (self._volume, 'state-{}'.format(digest))
+                    expensive_states.append(runner.expensive_state)
+                    runner.expensive_state = None
                 else:
-                    viewarg = None
-                args = (runner, niters, r.next(), viewarg)
+                    statearg = None
+                args = (runner, niters, r.next(), statearg)
                 jids.append(
                     multyvac.submit(
                         _mp_work,
@@ -217,10 +215,10 @@ class runner(object):
                         _core=self._core,
                         _name='kernels-parallel-runner-{}'.format(i)))
             self._runners = [multyvac.get(jid).get_result() for jid in jids]
-            if not views:
+            if not expensive_states:
                 return
-            for runner, view in zip(self._runners, views):
-                runner._view = view
+            for runner, state in zip(self._runners, expensive_states):
+                runner.expensive_state = state
         else:
             assert False, 'should not be reached'
 
