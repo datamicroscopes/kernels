@@ -10,6 +10,7 @@ import logging
 import time
 import tempfile
 import pickle
+import hashlib
 import multiprocessing as mp
 
 _logger = logging.getLogger(__name__)
@@ -144,7 +145,9 @@ class runner(object):
                 if cache_key in digest_cache:
                     digest = digest_cache[cache_key]
                 else:
-                    digest = runner.expensive_state_digest()
+                    h = hashlib.sha1()
+                    runner.expensive_state_digest(h)
+                    digest = h.hexdigest()
                     digest_cache[cache_key] = digest
                 self._digests.append(digest)
 
