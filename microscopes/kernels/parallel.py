@@ -43,6 +43,9 @@ def _mvac_list_files_in_dir(volume, path):
     return [x['path'] for x in ents if x['type'] == 'f']
 
 
+_MULTYVAC_PATH='/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin'
+
+
 class runner(object):
     """A parallel runner. Note the parallelism is applied across runners
     (currently, each runner is assumed to be single-threaded).
@@ -116,12 +119,10 @@ class runner(object):
             # XXX(stephentu): currently defaults to the good stuff
             self._core = kwargs.get('core', 'f2')
             self._env = {}
-            jid = multyvac.shell_submit('echo $PATH', _layer=self._layer)
-            path = multyvac.get(jid).get_result()
             # XXX(stephentu): assumes you used the setup multyvac scripts we
             # provide
             self._env['PATH'] = '{}:{}'.format(
-                '/home/multyvac/miniconda/envs/build/bin', path)
+                '/home/multyvac/miniconda/envs/build/bin', _MULTYVAC_PATH)
             self._env['CONDA_DEFAULT_ENV'] = 'build'
             # this is needed for multyvacinit.pybootstrap
             self._env['PYTHONPATH'] = '/usr/local/lib/python2.7/dist-packages'
