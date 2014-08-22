@@ -44,7 +44,7 @@ def _mvac_list_files_in_dir(volume, path):
     return [x['path'] for x in ents if x['type'] == 'f']
 
 
-_MULTYVAC_PATH='/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin'
+_MULTYVAC_PATH = '/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin'
 
 
 class runner(object):
