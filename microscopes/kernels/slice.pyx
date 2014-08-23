@@ -7,18 +7,17 @@ from libcpp.utility cimport pair
 from libcpp.map cimport map
 from libc.stddef cimport size_t
 
-from microscopes.kernels._slice_h cimport \
-    hp as c_hp, \
-    theta as c_theta, \
-    slice_update_param_t, \
-    slice_hp_param_t, \
-    slice_hp_t, \
-    slice_theta_param_t, \
-    slice_theta_t, \
-    sample_1d as c_sample_1d
-
-from microscopes.common._entity_state cimport \
-    fixed_entity_based_state_object
+from microscopes.kernels._slice_h cimport (
+    hp as c_hp,
+    theta as c_theta,
+    slice_update_param_t,
+    slice_hp_param_t,
+    slice_hp_t,
+    slice_theta_param_t,
+    slice_theta_t,
+    sample_1d as c_sample_1d,
+)
+from microscopes.common._entity_state cimport fixed_entity_based_state_object
 from microscopes.common._scalar_functions cimport scalar_function
 from microscopes.common._rng cimport rng
 
