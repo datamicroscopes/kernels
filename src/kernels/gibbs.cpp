@@ -1,6 +1,4 @@
 #include <microscopes/kernels/gibbs.hpp>
-#include <microscopes/common/assert.hpp>
-#include <microscopes/common/util.hpp>
 
 using namespace std;
 using namespace microscopes::common;
