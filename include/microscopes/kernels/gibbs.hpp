@@ -75,15 +75,15 @@ AssertAllAssigned2(const std::vector<std::vector<ssize_t>> &assignments)
 //
 //    std::set<size_t> empty_groups() const;
 //    size_t create_group(common::rng_t &);
-//    void delete_group(size_t);
-//    size_t groupsize(size_t) const;
+//    void delete_group(size_t gid);
+//    size_t groupsize(size_t gid) const;
 //
-//    size_t remove_value(size_t, common::rng_t &);
+//    size_t remove_value(size_t eid, common::rng_t &);
 //    void inplace_score_value(
 //      std::pair<std::vector<size_t>, std::vector<float>> &,
-//      size_t,
+//      size_t eid,
 //      common::rng_t &);
-//    void add_value(size_t, size_t, common::rng_t &);
+//    void add_value(size_t eid, size_t gid, common::rng_t &);
 //
 //  };
 //
@@ -111,7 +111,7 @@ gibbsT::assign(T &s, common::rng_t &rng)
     MICROSCOPES_ASSERT(s.empty_groups().size() == 1);
     s.inplace_score_value(scores, i, rng);
     const auto choice = scores.first[common::util::sample_discrete_log(scores.second, rng)];
-    s.add_value(choice, i, rng);
+    s.add_value(i, choice, rng);
     if (choice == egid)
       egid = s.create_group(rng);
   }
@@ -181,10 +181,10 @@ gibbsT::assign2(T &s, common::rng_t &rng)
       const auto p = s.remove_value(i, j, rng);
       const size_t did = p.first;
       const size_t tid = p.second;
-      if (!s.dishsize(did))
-        s.delete_dish(did);
       if (!s.tablesize(i, tid))
         s.delete_table(i, tid);
+      if (!s.dishsize(did))
+        s.delete_dish(did);
       MICROSCOPES_ASSERT(s.empty_dishes().size() == 1);
       MICROSCOPES_ASSERT(s.empty_tables(i).size() == 1);
       s.inplace_score_value(scores, i, j, rng);
