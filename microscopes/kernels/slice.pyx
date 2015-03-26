@@ -17,7 +17,7 @@ from microscopes.kernels._slice_h cimport (
     slice_theta_t,
     sample_1d as c_sample_1d,
 )
-from microscopes.common._entity_state cimport fixed_entity_based_state_object
+from microscopes.common._entity_state cimport entity_based_state_object
 from microscopes.common._scalar_functions cimport scalar_function
 from microscopes.common._rng cimport rng
 
@@ -40,7 +40,7 @@ def sample(scalar_function func, float x0, float w, rng r):
     return c_sample_1d(func._func, x0, w, r._thisptr[0])
 
 
-def hp(fixed_entity_based_state_object s, rng r, cparam={}, hparams={}):
+def hp(entity_based_state_object s, rng r, cparam={}, hparams={}):
     """
 
     example invocation:
@@ -100,7 +100,7 @@ def hp(fixed_entity_based_state_object s, rng r, cparam={}, hparams={}):
     c_hp(s._thisptr.get()[0], c_cparam, c_hparams, r._thisptr[0])
 
 
-def theta(fixed_entity_based_state_object s, rng r, tparams={}):
+def theta(entity_based_state_object s, rng r, tparams={}):
     validator.validate_not_none(r, "r")
     cdef vector[slice_theta_t] c_tparams
     cdef vector[slice_theta_param_t] buf0

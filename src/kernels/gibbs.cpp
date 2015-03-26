@@ -6,25 +6,12 @@ using namespace microscopes::kernels;
 using namespace microscopes::models;
 
 static inline ALWAYS_INLINE void
-AssertAllAssigned(const fixed_entity_based_state_object &s)
+AssertAllAssigned(const entity_based_state_object &s)
 {
 #ifdef DEBUG_MODE
   for (auto gid : s.assignments())
     MICROSCOPES_DCHECK(gid != -1, "unassigned entity found");
 #endif
-}
-
-void
-gibbs::assign_fixed(fixed_entity_based_state_object &s, rng_t &rng)
-{
-  AssertAllAssigned(s);
-  pair<vector<size_t>, vector<float>> scores;
-  for (auto i : util::permute(s.nentities(), rng)) {
-    s.remove_value(i, rng);
-    s.inplace_score_value(scores, i, rng);
-    const auto choice = scores.first[util::sample_discrete_log(scores.second, rng)];
-    s.add_value(choice, i, rng);
-  }
 }
 
 void
@@ -100,7 +87,7 @@ gibbs::assign_resample(entity_based_state_object &s, size_t m, rng_t &rng)
 }
 
 void
-gibbs::hp(fixed_entity_based_state_object &s,
+gibbs::hp(entity_based_state_object &s,
           const vector<pair<size_t, grid_t>> &params,
           rng_t &rng)
 {

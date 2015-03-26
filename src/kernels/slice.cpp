@@ -19,7 +19,7 @@ struct feature_scorefn {
   value_mutator *mut_;
   size_t pos_;
   size_t argpos_;
-  fixed_entity_based_state_object *s_;
+  entity_based_state_object *s_;
   rng_t *rng_;
   size_t feature_;
   scalar_fn prior_scorefn_;
@@ -37,13 +37,13 @@ struct cluster_scorefn {
   value_mutator *mut_;
   size_t pos_;
   size_t argpos_;
-  fixed_entity_based_state_object *s_;
+  entity_based_state_object *s_;
   scalar_fn prior_scorefn_;
   vector<float> args_;
 };
 
 void
-slice::hp(fixed_entity_based_state_object &s,
+slice::hp(entity_based_state_object &s,
           const vector<slice_hp_param_t> &cparams,
           const vector<slice_hp_t> &hparams,
           rng_t &rng)
@@ -132,14 +132,14 @@ struct theta_scorefn {
     return s_->score_likelihood(component_, id_, *rng_);
   }
   value_mutator *mut_;
-  fixed_entity_based_state_object *s_;
+  entity_based_state_object *s_;
   rng_t *rng_;
   size_t component_;
   ident_t id_;
 };
 
 void
-slice::theta(fixed_entity_based_state_object &s,
+slice::theta(entity_based_state_object &s,
              const vector<slice_theta_t> &tparams,
              rng_t &rng)
 {
