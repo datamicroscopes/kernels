@@ -163,13 +163,13 @@ struct slice {
   };
 
   static void
-  hp(common::fixed_entity_based_state_object &state,
+  hp(common::entity_based_state_object &state,
      const std::vector<slice_hp_param_t> &cparams,
      const std::vector<slice_hp_t> &hparams,
      common::rng_t &rng);
 
   static void
-  theta(common::fixed_entity_based_state_object &state,
+  theta(common::entity_based_state_object &state,
         const std::vector<slice_theta_t> &tparams,
         common::rng_t &rng);
 };
